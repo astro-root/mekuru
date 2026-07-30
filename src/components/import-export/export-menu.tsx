@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Download } from 'lucide-react'
+import { Download, FileText, FileSpreadsheet } from 'lucide-react'
 import { exportToCsv, exportToExcel } from '@/lib/import-export/parse'
 
 type CardItem = { front: string; back: string; note: string | null }
@@ -23,9 +23,13 @@ export function ExportMenu({ deckName, cards }: { deckName: string; cards: CardI
           エクスポート
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => exportToCsv(deckName, rows)}>CSVで出力</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => exportToExcel(deckName, rows)}>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem onSelect={() => exportToCsv(deckName, rows)} className="gap-2">
+          <FileText className="h-4 w-4 text-muted-foreground" />
+          CSVで出力
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => exportToExcel(deckName, rows)} className="gap-2">
+          <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
           Excel(.xlsx)で出力
         </DropdownMenuItem>
       </DropdownMenuContent>

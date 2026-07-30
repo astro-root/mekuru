@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Upload } from 'lucide-react'
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { parseCsv, parseExcel, type ParsedRow } from '@/lib/import-export/parse'
 import { createCardsBulk } from '@/lib/actions/cards'
 import { toast } from 'sonner'
@@ -22,6 +22,7 @@ export function ImportDialog({ deckId }: { deckId: string }) {
   const [skipped, setSkipped] = useState(0)
   const [fileName, setFileName] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -60,6 +61,23 @@ export function ImportDialog({ deckId }: { deckId: string }) {
     router.refresh()
   }
 
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) handleFile(file)
+  }
+
   return (
     <Dialog
       open={open}
@@ -68,6 +86,7 @@ export function ImportDialog({ deckId }: { deckId: string }) {
         if (!next) {
           setRows([])
           setFileName(null)
+          setIsDragging(false)
         }
       }}
     >
@@ -79,7 +98,7 @@ export function ImportDialog({ deckId }: { deckId: string }) {
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>CSV/Excelからインポート</DialogTitle>
+          <DialogTitle className="font-heading">CSV/Excelからインポート</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -97,32 +116,61 @@ export function ImportDialog({ deckId }: { deckId: string }) {
               if (file) handleFile(file)
             }}
           />
-          <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()}>
-            ファイルを選択
-          </Button>
-          {fileName && <span className="ml-2 text-sm text-muted-foreground">{fileName}</span>}
+
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed py-8 text-center transition-colors ${
+              isDragging
+                ? 'border-primary bg-secondary/50'
+                : 'border-border hover:border-foreground/25 hover:bg-muted/40'
+            }`}
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
+              <FileSpreadsheet className="h-4.5 w-4.5 text-secondary-foreground" strokeWidth={1.75} />
+            </div>
+            {fileName ? (
+              <p className="font-mono text-sm">{fileName}</p>
+            ) : (
+              <>
+                <p className="text-sm font-medium">クリックまたはドラッグ&ドロップ</p>
+                <p className="text-xs text-muted-foreground">.csv / .xlsx / .xls に対応</p>
+              </>
+            )}
+          </div>
 
           {rows.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm">
-                {rows.length}枚を読み込みました
-                {skipped > 0 && `(front/backが空の${skipped}行はスキップされました)`}
-              </p>
-              <div className="max-h-64 overflow-y-auto border rounded-md">
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                <span className="font-mono tabular-nums">{rows.length}</span>
+                <span>枚を読み込みました</span>
+              </div>
+              {skipped > 0 && (
+                <div className="flex items-center gap-2 text-sm text-[var(--destructive)]">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>
+                    front/backが空の<span className="font-mono tabular-nums">{skipped}</span>行はスキップされました
+                  </span>
+                </div>
+              )}
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-border">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted sticky top-0">
+                  <thead className="sticky top-0 bg-muted">
                     <tr>
-                      <th className="text-left p-2">表</th>
-                      <th className="text-left p-2">裏</th>
-                      <th className="text-left p-2">コメント</th>
+                      <th className="p-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">表</th>
+                      <th className="p-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">裏</th>
+                      <th className="p-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">コメント</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.slice(0, 50).map((row, i) => (
-                      <tr key={i} className="border-t">
+                      <tr key={i} className="border-t border-border">
                         <td className="p-2">{row.front}</td>
                         <td className="p-2">{row.back}</td>
-                        <td className="p-2">{row.note}</td>
+                        <td className="p-2 text-muted-foreground">{row.note}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -137,7 +185,7 @@ export function ImportDialog({ deckId }: { deckId: string }) {
 
         <DialogFooter>
           <Button type="button" disabled={rows.length === 0 || isPending} onClick={handleConfirm}>
-            {rows.length}枚を登録する
+            {isPending ? '登録中...' : `${rows.length}枚を登録する`}
           </Button>
         </DialogFooter>
       </DialogContent>
