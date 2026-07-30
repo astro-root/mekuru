@@ -36,6 +36,7 @@ function rowToFsrsCard(row: {
   lapses: number
   state: number
   last_review: string | null
+  learning_steps?: number | null
 }): Card {
   return {
     due: new Date(row.due),
@@ -47,6 +48,7 @@ function rowToFsrsCard(row: {
     lapses: row.lapses,
     state: row.state,
     last_review: row.last_review ? new Date(row.last_review) : undefined,
+    learning_steps: row.learning_steps ?? 0,
   }
 }
 
@@ -185,6 +187,7 @@ export async function submitReview(deckId: string, cardId: string, rating: Revie
       lapses: updated.lapses,
       state: updated.state,
       last_review: updated.last_review ? updated.last_review.toISOString() : null,
+      learning_steps: updated.learning_steps,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id,card_id' }
