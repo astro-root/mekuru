@@ -29,6 +29,7 @@ type CardItem = {
   back: string
   card_type: string
   cloze_text: string | null
+  note: string | null
 }
 
 export function CardFormDialog({
@@ -90,6 +91,10 @@ export function CardFormDialog({
           <div>
             <Label htmlFor="back">裏面</Label>
             <Input id="back" name="back" defaultValue={card?.back} required />
+          </div>
+          <div>
+            <Label htmlFor="note">コメント(裏面と同時に表示・任意)</Label>
+            <Input id="note" name="note" defaultValue={card?.note ?? ''} />
           </div>
           {cardType === 'cloze' && (
             <div>

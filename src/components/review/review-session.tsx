@@ -84,6 +84,9 @@ export function ReviewSession({ deckId, cards }: { deckId: string; cards: DueCar
             <>
               <div className="w-full border-t" />
               <p className="text-lg whitespace-pre-wrap">{answerText}</p>
+              {current.note && (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{current.note}</p>
+              )}
             </>
           )}
         </CardContent>

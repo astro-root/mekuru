@@ -9,6 +9,7 @@ const cardSchema = z.object({
   back: z.string().min(1, '裏面は必須です').max(2000),
   card_type: z.enum(['basic', 'cloze']).default('basic'),
   cloze_text: z.string().max(2000).optional(),
+  note: z.string().max(2000).optional(),
 })
 
 export async function getCards(deckId: string) {
@@ -30,6 +31,7 @@ export async function createCard(deckId: string, formData: FormData) {
     back: formData.get('back'),
     card_type: formData.get('card_type') || 'basic',
     cloze_text: formData.get('cloze_text') || undefined,
+    note: formData.get('note') || undefined,
   })
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
@@ -45,6 +47,28 @@ export async function createCard(deckId: string, formData: FormData) {
   return { success: true }
 }
 
+export async function createCardsBulk(
+  deckId: string,
+  rows: { front: string; back: string; note?: string }[]
+) {
+  const supabase = await createClient()
+  if (rows.length === 0) return { error: '登録するカードがありません' }
+
+  const payload = rows.map((r) => ({
+    deck_id: deckId,
+    front: r.front,
+    back: r.back,
+    note: r.note || null,
+    card_type: 'basic' as const,
+  }))
+
+  const { error, count } = await supabase.from('cards').insert(payload, { count: 'exact' })
+  if (error) return { error: error.message }
+
+  revalidatePath(`/decks/${deckId}`)
+  return { success: true, count: count ?? rows.length }
+}
+
 export async function updateCard(deckId: string, cardId: string, formData: FormData) {
   const supabase = await createClient()
   const parsed = cardSchema.safeParse({
@@ -52,6 +76,7 @@ export async function updateCard(deckId: string, cardId: string, formData: FormD
     back: formData.get('back'),
     card_type: formData.get('card_type') || 'basic',
     cloze_text: formData.get('cloze_text') || undefined,
+    note: formData.get('note') || undefined,
   })
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }

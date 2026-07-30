@@ -11,6 +11,7 @@ export type DueCard = {
   back: string
   card_type: string
   cloze_text: string | null
+  note: string | null
   due: string
   state: number
 }
@@ -77,6 +78,7 @@ export async function getDueCards(deckId: string): Promise<DueCard[]> {
         back: card.back,
         card_type: card.card_type,
         cloze_text: card.cloze_text,
+        note: card.note,
         due: now.toISOString(),
         state: State.New,
       })
@@ -90,6 +92,7 @@ export async function getDueCards(deckId: string): Promise<DueCard[]> {
         back: card.back,
         card_type: card.card_type,
         cloze_text: card.cloze_text,
+        note: card.note,
         due: reviewRow.due,
         state: reviewRow.state,
       })

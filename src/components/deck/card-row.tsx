@@ -20,6 +20,7 @@ type CardItem = {
   back: string
   card_type: string
   cloze_text: string | null
+  note: string | null
 }
 
 export function CardRow({ deckId, card }: { deckId: string; card: CardItem }) {
