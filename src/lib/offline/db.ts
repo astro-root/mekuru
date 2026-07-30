@@ -5,19 +5,20 @@ export interface OfflineCard {
   deckId: string
   front: string
   back: string
-  cloze: string | null
-  tags: string[]
-  fsrsState: string
-  dirty: number
+  cardType: string
+  clozeText: string | null
+  note: string | null
+  fsrsState: string // JSON化されたFSRS Card(due, stability, difficulty, etc.)
   updatedAt: string
 }
 
 export interface OfflineReviewQueueItem {
   id: string
+  deckId: string
   cardId: string
   rating: string
   reviewedAt: string
-  synced: number
+  synced: number // 0 = 未同期, 1 = 同期済み
 }
 
 class MekuruDB extends Dexie {
@@ -26,9 +27,9 @@ class MekuruDB extends Dexie {
 
   constructor() {
     super('mekuru')
-    this.version(1).stores({
-      cards: 'id, deckId, dirty, updatedAt',
-      reviewQueue: 'id, cardId, synced',
+    this.version(2).stores({
+      cards: 'id, deckId, updatedAt',
+      reviewQueue: 'id, deckId, cardId, synced, reviewedAt',
     })
   }
 }

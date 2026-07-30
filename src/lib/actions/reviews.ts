@@ -5,6 +5,16 @@ import { revalidatePath } from 'next/cache'
 import { scheduleReview, isDue, type ReviewRating } from '@/lib/fsrs/scheduler'
 import { createEmptyCard, State, type Card } from 'ts-fsrs'
 
+export type CardWithState = {
+  id: string
+  front: string
+  back: string
+  card_type: string
+  cloze_text: string | null
+  note: string | null
+  fsrsCard: Card
+}
+
 export type DueCard = {
   id: string
   front: string
@@ -38,6 +48,46 @@ function rowToFsrsCard(row: {
     state: row.state,
     last_review: row.last_review ? new Date(row.last_review) : undefined,
   }
+}
+
+export async function getDeckCardsWithState(deckId: string): Promise<CardWithState[]> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('認証されていません')
+
+  const { data: cards, error: cardsError } = await supabase
+    .from('cards')
+    .select('*')
+    .eq('deck_id', deckId)
+  if (cardsError) throw new Error(cardsError.message)
+  if (!cards) return []
+
+  const { data: reviews, error: reviewsError } = await supabase
+    .from('card_reviews')
+    .select('*')
+    .eq('user_id', user.id)
+    .in(
+      'card_id',
+      cards.map((c) => c.id)
+    )
+  if (reviewsError) throw new Error(reviewsError.message)
+
+  const reviewByCardId = new Map(reviews?.map((r) => [r.card_id, r]) ?? [])
+
+  return cards.map((card) => {
+    const reviewRow = reviewByCardId.get(card.id)
+    return {
+      id: card.id,
+      front: card.front,
+      back: card.back,
+      card_type: card.card_type,
+      cloze_text: card.cloze_text,
+      note: card.note,
+      fsrsCard: reviewRow ? rowToFsrsCard(reviewRow) : createEmptyCard(),
+    }
+  })
 }
 
 export async function getDueCards(deckId: string): Promise<DueCard[]> {

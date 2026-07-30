@@ -1,42 +1,67 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { submitReview } from '@/lib/actions/reviews'
 import { renderClozeQuestion, renderClozeAnswer } from '@/lib/cloze'
-import type { DueCard } from '@/lib/actions/reviews'
+import {
+  hydrateDeckCache,
+  getCachedDueCards,
+  applyReviewOffline,
+  syncPendingReviews,
+  type OfflineDueCard,
+} from '@/lib/offline/sync'
 import type { ReviewRating } from '@/lib/fsrs/scheduler'
 import { toast } from 'sonner'
+import { WifiOff } from 'lucide-react'
 
-export function ReviewSession({ deckId, cards }: { deckId: string; cards: DueCard[] }) {
+export function ReviewSession({ deckId }: { deckId: string }) {
+  const [cards, setCards] = useState<OfflineDueCard[] | null>(null)
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
-  const [isPending, setIsPending] = useState(false)
+  const [isOffline, setIsOffline] = useState(false)
   const router = useRouter()
 
-  const current = cards[index]
-  const isLast = index >= cards.length - 1
-  const isDone = index >= cards.length
+  const loadCards = useCallback(async () => {
+    await hydrateDeckCache(deckId)
+    const due = await getCachedDueCards(deckId)
+    setCards(due)
+  }, [deckId])
+
+  useEffect(() => {
+    loadCards()
+    setIsOffline(typeof navigator !== 'undefined' && !navigator.onLine)
+
+    function handleOnline() {
+      setIsOffline(false)
+      syncPendingReviews(deckId).catch(() => {})
+    }
+    function handleOffline() {
+      setIsOffline(true)
+    }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [deckId, loadCards])
+
+  const current = cards?.[index]
+  const isLast = cards ? index >= cards.length - 1 : false
+  const isDone = cards ? index >= cards.length : false
 
   async function handleRate(rating: ReviewRating) {
-    if (!current || isPending) return
-    setIsPending(true)
-    const result = await submitReview(deckId, current.id, rating)
-    setIsPending(false)
+    if (!current) return
+    await applyReviewOffline(deckId, current.id, rating)
+    setIndex((i) => i + 1)
+    setFlipped(false)
+  }
 
-    if (result?.error) {
-      toast.error(result.error)
-      return
-    }
-    if (isLast) {
-      setIndex(index + 1)
-    } else {
-      setIndex(index + 1)
-      setFlipped(false)
-    }
+  if (cards === null) {
+    return <p className="text-center text-muted-foreground py-16">読み込み中...</p>
   }
 
   if (cards.length === 0) {
@@ -61,17 +86,24 @@ export function ReviewSession({ deckId, cards }: { deckId: string; cards: DueCar
   }
 
   const questionText =
-    current.card_type === 'cloze' && current.cloze_text
-      ? renderClozeQuestion(current.cloze_text)
-      : current.front
+    current!.cardType === 'cloze' && current!.clozeText
+      ? renderClozeQuestion(current!.clozeText)
+      : current!.front
 
   const answerText =
-    current.card_type === 'cloze' && current.cloze_text
-      ? renderClozeAnswer(current.cloze_text)
-      : current.back
+    current!.cardType === 'cloze' && current!.clozeText
+      ? renderClozeAnswer(current!.clozeText)
+      : current!.back
 
   return (
     <div className="space-y-6">
+      {isOffline && (
+        <div className="flex items-center justify-center gap-2 rounded-md bg-muted py-2 text-sm text-muted-foreground">
+          <WifiOff className="h-4 w-4" />
+          オフラインです。復習結果は接続が戻り次第自動で送信されます。
+        </div>
+      )}
+
       <Progress value={(index / cards.length) * 100} />
       <p className="text-sm text-muted-foreground text-center">
         {index + 1} / {cards.length}
@@ -84,8 +116,8 @@ export function ReviewSession({ deckId, cards }: { deckId: string; cards: DueCar
             <>
               <div className="w-full border-t" />
               <p className="text-lg whitespace-pre-wrap">{answerText}</p>
-              {current.note && (
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{current.note}</p>
+              {current!.note && (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{current!.note}</p>
               )}
             </>
           )}
@@ -98,16 +130,16 @@ export function ReviewSession({ deckId, cards }: { deckId: string; cards: DueCar
         </Button>
       ) : (
         <div className="grid grid-cols-4 gap-2">
-          <Button variant="destructive" disabled={isPending} onClick={() => handleRate('again')}>
+          <Button variant="destructive" onClick={() => handleRate('again')}>
             もう一度
           </Button>
-          <Button variant="outline" disabled={isPending} onClick={() => handleRate('hard')}>
+          <Button variant="outline" onClick={() => handleRate('hard')}>
             難しい
           </Button>
-          <Button variant="secondary" disabled={isPending} onClick={() => handleRate('good')}>
+          <Button variant="secondary" onClick={() => handleRate('good')}>
             普通
           </Button>
-          <Button variant="default" disabled={isPending} onClick={() => handleRate('easy')}>
+          <Button variant="default" onClick={() => handleRate('easy')}>
             簡単
           </Button>
         </div>
