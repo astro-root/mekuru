@@ -1,0 +1,59 @@
+import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
+import { DeckActionsMenu } from './deck-actions-menu'
+
+type Deck = {
+  id: string
+  name: string
+  description: string | null
+  genre: string | null
+  difficulty: number
+}
+
+export function DeckCard({ deck }: { deck: Deck }) {
+  return (
+    <Link href={`/decks/${deck.id}`} className="group block h-full">
+      <div
+        className="relative h-full border border-border bg-card p-4 pr-5 shadow-sm transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md"
+        style={{
+          clipPath: 'polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%)',
+          borderRadius: 'var(--radius-lg)',
+        }}
+      >
+        <div
+          className="absolute right-0 top-0 h-[18px] w-[18px] bg-muted transition-all duration-200 ease-out group-hover:h-[26px] group-hover:w-[26px]"
+          style={{
+            clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+            boxShadow: 'inset -2px -2px 3px rgba(28,33,48,0.10)',
+          }}
+        />
+
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="font-heading text-base font-bold truncate">{deck.name}</h3>
+            {deck.description && (
+              <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                {deck.description}
+              </p>
+            )}
+          </div>
+          <DeckActionsMenu deck={deck} />
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          {deck.genre && <Badge variant="secondary">{deck.genre}</Badge>}
+          <div className="flex items-center gap-1" title={`難易度 ${deck.difficulty} / 5`}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span
+                key={i}
+                className={`h-1.5 w-1.5 rounded-full ${
+                  i < deck.difficulty ? 'bg-primary' : 'bg-border'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </Link>
+  )
+}

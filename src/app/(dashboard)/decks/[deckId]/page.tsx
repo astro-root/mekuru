@@ -5,7 +5,7 @@ import { getCards } from '@/lib/actions/cards'
 import { Button } from '@/components/ui/button'
 import { CardFormDialog } from '@/components/deck/card-form-dialog'
 import { CardRow } from '@/components/deck/card-row'
-import { ArrowLeft, Plus, BookOpen } from 'lucide-react'
+import { ArrowLeft, Plus, BookOpen, Layers } from 'lucide-react'
 import { ExportMenu } from '@/components/import-export/export-menu'
 import { ImportDialog } from '@/components/import-export/import-dialog'
 
@@ -28,15 +28,20 @@ export default async function DeckDetailPage({
 
   return (
     <div className="space-y-6">
-      <Link href="/decks" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        href="/decks"
+        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="mr-1 h-4 w-4" />
         デッキ一覧に戻る
       </Link>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">{deck.name}</h1>
-          <p className="text-sm text-muted-foreground">{cards.length} 枚のカード</p>
+          <h1 className="font-heading text-xl font-bold">{deck.name}</h1>
+          <p className="mt-0.5 font-mono text-sm text-muted-foreground">
+            {cards.length} 枚のカード
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/review/${deckId}`}>
@@ -60,9 +65,21 @@ export default async function DeckDetailPage({
       </div>
 
       {cards.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-12">
-          まだカードがありません。最初のカードを追加しましょう。
-        </p>
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border py-16 text-center">
+          <Layers className="h-8 w-8 text-muted-foreground" strokeWidth={1.5} />
+          <p className="text-sm text-muted-foreground">
+            まだカードがありません。最初のカードを追加しましょう。
+          </p>
+          <CardFormDialog
+            deckId={deckId}
+            trigger={
+              <Button size="sm" variant="outline">
+                <Plus className="mr-1 h-4 w-4" />
+                最初のカードを追加
+              </Button>
+            }
+          />
+        </div>
       ) : (
         <div className="space-y-2">
           {cards.map((card) => (
