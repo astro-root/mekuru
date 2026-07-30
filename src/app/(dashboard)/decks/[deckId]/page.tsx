@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getDeck } from '@/lib/actions/decks'
@@ -8,6 +9,20 @@ import { CardRow } from '@/components/deck/card-row'
 import { ArrowLeft, Plus, BookOpen, Layers } from 'lucide-react'
 import { ExportMenu } from '@/components/import-export/export-menu'
 import { ImportDialog } from '@/components/import-export/import-dialog'
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ deckId: string }>
+}): Promise<Metadata> {
+  const { deckId } = await params
+  try {
+    const deck = await getDeck(deckId)
+    return { title: deck?.name ?? "デッキ" }
+  } catch {
+    return { title: "デッキ" }
+  }
+}
 
 export default async function DeckDetailPage({
   params,

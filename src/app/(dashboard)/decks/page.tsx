@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { getDecks } from '@/lib/actions/decks'
 import { Button } from '@/components/ui/button'
 import { DeckFormDialog } from '@/components/deck/deck-form-dialog'
 import { DeckCard } from '@/components/deck/deck-card'
 import { Plus, Layers } from 'lucide-react'
+
+export const metadata: Metadata = {
+  title: "デッキ一覧",
+}
 
 export default async function DecksPage() {
   const decks = await getDecks()

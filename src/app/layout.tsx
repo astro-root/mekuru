@@ -20,8 +20,11 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "めくる",
-  description: "毎日めくる、記憶の相棒。",
+  title: {
+    default: "めくる — 毎日めくる、記憶の相棒。",
+    template: "%s | めくる",
+  },
+  description: "間隔反復(FSRS)でめくりながら覚える暗記プラットフォーム。オフライン対応、インポート/エクスポート対応。",
 };
 
 export default function RootLayout({
