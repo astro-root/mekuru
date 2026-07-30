@@ -5,7 +5,9 @@ const scheduler = fsrs(params)
 
 export type ReviewRating = 'again' | 'hard' | 'good' | 'easy'
 
-const ratingMap: Record<ReviewRating, Rating> = {
+type GradeRating = Exclude<Rating, Rating.Manual>
+
+const ratingMap: Record<ReviewRating, GradeRating> = {
   again: Rating.Again,
   hard: Rating.Hard,
   good: Rating.Good,
