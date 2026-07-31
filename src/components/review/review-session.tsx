@@ -15,8 +15,7 @@ import {
 import type { ReviewRating } from '@/lib/fsrs/scheduler'
 import type { ReviewStats } from '@/lib/actions/reviews'
 import { ReviewStatsBar } from './review-stats-bar'
-import { toast } from 'sonner'
-import { WifiOff, PartyPopper } from 'lucide-react'
+import { WifiOff, PartyPopper, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const RATING_CONFIG: {
   key: ReviewRating
@@ -58,7 +57,10 @@ export function ReviewSession({
   initialStats: ReviewStats
 }) {
   const [cards, setCards] = useState<OfflineDueCard[] | null>(null)
+  // index: 現在表示中のカード位置。liveIndex: これから評価すべき「本来の」カード位置。
+  // index < liveIndex のときは、過去に評価済みのカードを見返している状態。
   const [index, setIndex] = useState(0)
+  const [liveIndex, setLiveIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
   const [rating, setRating] = useState<ReviewRating | null>(null)
@@ -92,7 +94,8 @@ export function ReviewSession({
   }, [deckId, loadCards])
 
   const current = cards?.[index]
-  const isDone = cards ? index >= cards.length : false
+  const isReviewingPast = index < liveIndex
+  const isDone = cards ? liveIndex >= cards.length && index >= liveIndex : false
 
   // サーバーから取得した「今日の復習数/連続日数」に、このセッション中に完了した分を
   // 即時反映する。今日まだ1件も復習していなかった状態から1件でも評価したら、
@@ -103,34 +106,64 @@ export function ReviewSession({
 
   const handleRate = useCallback(
     async (r: ReviewRating) => {
-      if (!current || rating) return
+      if (!current || rating || isReviewingPast) return
       setRating(r)
       await applyReviewOffline(deckId, current.id, r)
       setSessionReviewedCount((c) => c + 1)
       setTimeout(() => {
         setIndex((i) => i + 1)
+        setLiveIndex((i) => i + 1)
         setFlipped(false)
         setRating(null)
       }, 160)
     },
-    [current, deckId, rating]
+    [current, deckId, rating, isReviewingPast]
   )
 
+  // カードをタップすると、問題⇄答えを何度でも行き来できる
   const handleFlip = useCallback(() => {
-    if (!flipped) setFlipped(true)
-  }, [flipped])
+    setFlipped((f) => !f)
+  }, [])
 
-  // キーボードショートカット: Space/Enter でめくる、1-4 で評価
+  const goToPrevious = useCallback(() => {
+    if (index <= 0) return
+    setIndex((i) => i - 1)
+    setFlipped(true)
+  }, [index])
+
+  const goToNext = useCallback(() => {
+    if (index >= liveIndex) return
+    const next = index + 1
+    setIndex(next)
+    setFlipped(next < liveIndex)
+  }, [index, liveIndex])
+
+  const goToLive = useCallback(() => {
+    setIndex(liveIndex)
+    setFlipped(false)
+  }, [liveIndex])
+
+  // キーボードショートカット: Space/Enter でめくる、1-4 で評価、矢印キーで前後のカードへ
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (!current) return
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return
-      if (!flipped && (e.code === 'Space' || e.code === 'Enter')) {
+      if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault()
         handleFlip()
         return
       }
-      if (flipped) {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        goToPrevious()
+        return
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        if (isReviewingPast) goToNext()
+        return
+      }
+      if (flipped && !isReviewingPast) {
         const match = RATING_CONFIG.find((r) => r.shortcut === e.key)
         if (match) {
           e.preventDefault()
@@ -140,7 +173,7 @@ export function ReviewSession({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [flipped, current, handleFlip, handleRate])
+  }, [flipped, current, handleFlip, handleRate, goToPrevious, goToNext, isReviewingPast])
 
   if (cards === null) {
     return (
@@ -153,7 +186,7 @@ export function ReviewSession({
 
   if (cards.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-4 py-24 text-center">
+      <div className="animate-in fade-in duration-500 flex flex-col items-center gap-4 py-24 text-center">
         <ReviewStatsBar streak={displayedStreak} todayCount={displayedTodayCount} />
         <PartyPopper className="h-8 w-8 text-primary" strokeWidth={1.5} />
         <p className="font-heading text-lg font-bold">今日はここまで</p>
@@ -167,14 +200,20 @@ export function ReviewSession({
 
   if (isDone) {
     return (
-      <div className="flex flex-col items-center gap-4 py-24 text-center">
+      <div className="animate-in fade-in zoom-in-95 duration-500 flex flex-col items-center gap-4 py-24 text-center">
         <ReviewStatsBar streak={displayedStreak} todayCount={displayedTodayCount} />
         <PartyPopper className="h-9 w-9 text-primary" strokeWidth={1.5} />
         <p className="font-heading text-xl font-bold">お疲れさまでした！</p>
         <p className="font-mono text-sm text-muted-foreground">{cards.length} 枚のカードを復習しました</p>
-        <Button className="mt-2" onClick={() => router.push(`/decks/${deckId}`)}>
-          デッキに戻る
-        </Button>
+        <div className="mt-2 flex gap-2">
+          {liveIndex > 0 && (
+            <Button variant="outline" onClick={goToPrevious}>
+              <RotateCcw className="mr-1 h-4 w-4" />
+              振り返る
+            </Button>
+          )}
+          <Button onClick={() => router.push(`/decks/${deckId}`)}>デッキに戻る</Button>
+        </div>
       </div>
     )
   }
@@ -194,20 +233,44 @@ export function ReviewSession({
       <ReviewStatsBar streak={displayedStreak} todayCount={displayedTodayCount} />
 
       {isOffline && (
-        <div className="flex items-center justify-center gap-2 rounded-md bg-muted py-2 text-sm text-muted-foreground">
+        <div className="animate-in fade-in flex items-center justify-center gap-2 rounded-md bg-muted py-2 text-sm text-muted-foreground">
           <WifiOff className="h-4 w-4" />
           オフラインです。復習結果は接続が戻り次第自動で送信されます。
         </div>
       )}
 
-      <div className="flex items-center gap-3">
-        <Progress value={(index / cards.length) * 100} className="h-1.5" />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={goToPrevious}
+          disabled={index <= 0}
+          aria-label="前の問題に戻る"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted disabled:opacity-30"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <Progress value={(liveIndex / cards.length) * 100} className="h-1.5" />
         <span className="shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
           {index + 1} / {cards.length}
         </span>
       </div>
 
-      {/* めくるカード本体: 3D flip */}
+      {isReviewingPast && (
+        <div className="animate-in fade-in slide-in-from-top-1 flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-1.5 text-sm text-secondary-foreground">
+          <RotateCcw className="h-3.5 w-3.5" />
+          振り返り中(評価済みのカードを確認しています)
+          <button
+            type="button"
+            onClick={goToLive}
+            className="ml-1 inline-flex items-center gap-0.5 font-medium underline underline-offset-2"
+          >
+            現在の問題に戻る
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* めくるカード本体: 3D flip (クリックで問題⇄答えを何度でも切り替え可能) */}
       <div
         className="relative w-full cursor-pointer select-none"
         style={{ perspective: '1600px' }}
@@ -215,10 +278,12 @@ export function ReviewSession({
       >
         <div
           ref={cardRef}
-          className="relative min-h-[300px] w-full transition-transform duration-500 ease-[cubic-bezier(0.4,0.2,0.2,1)]"
+          key={current!.id}
+          className="animate-in fade-in zoom-in-[0.98] relative min-h-[300px] w-full duration-300 transition-transform ease-[cubic-bezier(0.4,0.2,0.2,1)]"
           style={{
             transformStyle: 'preserve-3d',
             transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+            transitionDuration: '500ms',
           }}
         >
           {/* 表面: 問題 */}
@@ -255,17 +320,26 @@ export function ReviewSession({
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">{current!.note}</p>
               </>
             )}
+            <span className="mt-4 flex items-center gap-1 text-xs text-muted-foreground">
+              <RotateCcw className="h-3 w-3" />
+              タップ / Space で問題に戻る
+            </span>
           </div>
         </div>
       </div>
 
-      {!flipped ? (
+      {isReviewingPast ? (
+        <Button variant="outline" className="w-full animate-in fade-in" size="lg" onClick={goToNext}>
+          次のカードへ
+          <ChevronRight className="ml-1 h-4 w-4" />
+        </Button>
+      ) : !flipped ? (
         <Button className="w-full" size="lg" onClick={handleFlip}>
           答えを見る
           <span className="ml-2 font-mono text-xs opacity-60">Space</span>
         </Button>
       ) : (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 grid grid-cols-4 gap-2">
           {RATING_CONFIG.map((r) => (
             <Button
               key={r.key}
