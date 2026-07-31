@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getDecks } from '@/lib/actions/decks'
 import { Button } from '@/components/ui/button'
 import { DeckFormDialog } from '@/components/deck/deck-form-dialog'
-import { DeckCard } from '@/components/deck/deck-card'
+import { DeckList } from '@/components/deck/deck-list'
 import { Plus, Layers } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -47,11 +47,7 @@ export default async function DecksPage() {
           />
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {decks.map((deck) => (
-            <DeckCard key={deck.id} deck={deck} />
-          ))}
-        </div>
+        <DeckList decks={decks} />
       )}
     </div>
   )
