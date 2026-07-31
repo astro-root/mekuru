@@ -12,7 +12,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { parseCsv, parseExcel, type ParsedRow } from '@/lib/import-export/parse'
+import { parseCsv, parseExcel, type ParsedRow, type ParseResult } from '@/lib/import-export/parse'
 import { createCardsBulk } from '@/lib/actions/cards'
 import { toast } from 'sonner'
 
@@ -28,20 +28,28 @@ export function ImportDialog({ deckId }: { deckId: string }) {
 
   async function handleFile(file: File) {
     setFileName(file.name)
+    const lowerName = file.name.toLowerCase()
     try {
-      if (file.name.endsWith('.csv')) {
+      let result: ParseResult
+      if (lowerName.endsWith('.csv')) {
         const text = await file.text()
-        const result = parseCsv(text)
-        setRows(result.rows)
-        setSkipped(result.skipped)
+        result = parseCsv(text)
       } else {
         const buffer = await file.arrayBuffer()
-        const result = parseExcel(buffer)
-        setRows(result.rows)
-        setSkipped(result.skipped)
+        result = parseExcel(buffer)
+      }
+      setRows(result.rows)
+      setSkipped(result.skipped)
+
+      if (result.rows.length === 0) {
+        toast.error(
+          result.skipped > 0
+            ? 'front/backのどちらかが空の行しかありませんでした。内容をご確認ください。'
+            : '列名(front/back または 表/裏、問題/答え)が見つかりませんでした。1行目が見出し行になっているかご確認ください。'
+        )
       }
     } catch {
-      toast.error('ファイルの読み込みに失敗しました。列名(front/back または 表/裏)を確認してください。')
+      toast.error('ファイルの読み込みに失敗しました。ファイル形式(.csv / .xlsx / .xls)をご確認ください。')
     }
   }
 
@@ -114,6 +122,7 @@ export function ImportDialog({ deckId }: { deckId: string }) {
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) handleFile(file)
+              e.target.value = ''
             }}
           />
 
