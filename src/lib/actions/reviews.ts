@@ -260,7 +260,7 @@ export async function getReviewStats(): Promise<ReviewStats> {
 
   return { todayCount, streak }
 }
-\n
+
 export type ReviewHistoryEntry = {
   id: string
   deckId: string
@@ -296,10 +296,10 @@ export async function getReviewHistory(limit = 100): Promise<ReviewHistoryEntry[
   if (!user) return []
 
   const { data, error } = await supabase
-    .from(\'review_logs\')
-    .select(\'id, card_id, deck_id, rating, reviewed_at, cards(front, back), decks(name)\')
-    .eq(\'user_id\', user.id)
-    .order(\'reviewed_at\', { ascending: false })
+    .from('review_logs')
+    .select('id, card_id, deck_id, rating, reviewed_at, cards(front, back), decks(name)')
+    .eq('user_id', user.id)
+    .order('reviewed_at', { ascending: false })
     .limit(limit)
 
   if (error || !data) return []
@@ -310,35 +310,13 @@ export async function getReviewHistory(limit = 100): Promise<ReviewHistoryEntry[
     return {
       id: row.id,
       deckId: row.deck_id,
-      deckName: deck?.name ?? \'(削除済みデッキ)\',
+      deckName: deck?.name ?? '(削除済みデッキ)',
       cardId: row.card_id,
-      front: card?.front ?? \'(削除済みカード)\',
-      back: card?.back ?? \'\',
+      front: card?.front ?? '(削除済みカード)',
+      back: card?.back ?? '',
       rating: row.rating as ReviewRating,
       reviewedAt: row.reviewed_at,
     }
   })
 }
 
-export type ReviewHistorySummary = {
-  total: number
-  againCount: number
-  hardCount: number
-  goodCount: number
-  easyCount: number
-}
-
-/** 履歴ページ上部のサマリー用の集計(直近取得した件数の範囲内で集計する軽量版) */
-export function summarizeReviewHistory(entries: ReviewHistoryEntry[]): ReviewHistorySummary {
-  return entries.reduce(
-    (acc, entry) => {
-      acc.total++
-      if (entry.rating === \'again\') acc.againCount++
-      if (entry.rating === \'hard\') acc.hardCount++
-      if (entry.rating === \'good\') acc.goodCount++
-      if (entry.rating === \'easy\') acc.easyCount++
-      return acc
-    },
-    { total: 0, againCount: 0, hardCount: 0, goodCount: 0, easyCount: 0 }
-  )
-}

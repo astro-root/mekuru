@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getReviewHistory, getReviewStats, summarizeReviewHistory } from '@/lib/actions/reviews'
+import { getReviewHistory, getReviewStats } from '@/lib/actions/reviews'
+import { summarizeReviewHistory } from '@/lib/review-rating'
 import { HistoryList } from '@/components/history/history-list'
 import { RATING_LABELS, RATING_DOT_CLASS } from '@/lib/review-rating'
 import type { ReviewRating } from '@/lib/fsrs/scheduler'

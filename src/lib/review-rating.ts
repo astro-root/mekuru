@@ -20,3 +20,32 @@ export const RATING_DOT_CLASS: Record<ReviewRating, string> = {
   good: 'bg-[var(--chart-3)]',
   easy: 'bg-primary',
 }
+
+export type ReviewHistoryRating = ReviewRating
+
+export type ReviewHistoryEntryLike = {
+  rating: ReviewRating
+}
+
+export type ReviewHistorySummary = {
+  total: number
+  againCount: number
+  hardCount: number
+  goodCount: number
+  easyCount: number
+}
+
+/** 履歴ページ上部のサマリー用の集計(渡された配列の範囲内で集計する軽量版) */
+export function summarizeReviewHistory(entries: ReviewHistoryEntryLike[]): ReviewHistorySummary {
+  return entries.reduce(
+    (acc, entry) => {
+      acc.total++
+      if (entry.rating === 'again') acc.againCount++
+      if (entry.rating === 'hard') acc.hardCount++
+      if (entry.rating === 'good') acc.goodCount++
+      if (entry.rating === 'easy') acc.easyCount++
+      return acc
+    },
+    { total: 0, againCount: 0, hardCount: 0, goodCount: 0, easyCount: 0 }
+  )
+}
