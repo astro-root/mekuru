@@ -260,3 +260,85 @@ export async function getReviewStats(): Promise<ReviewStats> {
 
   return { todayCount, streak }
 }
+\n
+export type ReviewHistoryEntry = {
+  id: string
+  deckId: string
+  deckName: string
+  cardId: string
+  front: string
+  back: string
+  rating: ReviewRating
+  reviewedAt: string
+}
+
+type ReviewLogJoinRow = {
+  id: string
+  card_id: string
+  deck_id: string
+  rating: string
+  reviewed_at: string
+  cards: { front: string; back: string } | { front: string; back: string }[] | null
+  decks: { name: string } | { name: string }[] | null
+}
+
+function firstOf<T>(value: T | T[] | null): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value
+}
+
+/** 直近の学習履歴(自分がめくって評価した問題)を新しい順に取得する */
+export async function getReviewHistory(limit = 100): Promise<ReviewHistoryEntry[]> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from(\'review_logs\')
+    .select(\'id, card_id, deck_id, rating, reviewed_at, cards(front, back), decks(name)\')
+    .eq(\'user_id\', user.id)
+    .order(\'reviewed_at\', { ascending: false })
+    .limit(limit)
+
+  if (error || !data) return []
+
+  return (data as unknown as ReviewLogJoinRow[]).map((row) => {
+    const card = firstOf(row.cards)
+    const deck = firstOf(row.decks)
+    return {
+      id: row.id,
+      deckId: row.deck_id,
+      deckName: deck?.name ?? \'(削除済みデッキ)\',
+      cardId: row.card_id,
+      front: card?.front ?? \'(削除済みカード)\',
+      back: card?.back ?? \'\',
+      rating: row.rating as ReviewRating,
+      reviewedAt: row.reviewed_at,
+    }
+  })
+}
+
+export type ReviewHistorySummary = {
+  total: number
+  againCount: number
+  hardCount: number
+  goodCount: number
+  easyCount: number
+}
+
+/** 履歴ページ上部のサマリー用の集計(直近取得した件数の範囲内で集計する軽量版) */
+export function summarizeReviewHistory(entries: ReviewHistoryEntry[]): ReviewHistorySummary {
+  return entries.reduce(
+    (acc, entry) => {
+      acc.total++
+      if (entry.rating === \'again\') acc.againCount++
+      if (entry.rating === \'hard\') acc.hardCount++
+      if (entry.rating === \'good\') acc.goodCount++
+      if (entry.rating === \'easy\') acc.easyCount++
+      return acc
+    },
+    { total: 0, againCount: 0, hardCount: 0, goodCount: 0, easyCount: 0 }
+  )
+}
