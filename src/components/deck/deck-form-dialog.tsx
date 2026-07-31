@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -33,10 +34,12 @@ export function DeckFormDialog({
 }) {
   const [open, setOpen] = useState(false)
   const [isPending, setIsPending] = useState(false)
+  const [difficulty, setDifficulty] = useState(deck?.difficulty ?? 1)
   const router = useRouter()
   const isEdit = !!deck
 
   async function handleSubmit(formData: FormData) {
+    formData.set('difficulty', String(difficulty))
     setIsPending(true)
     const result = isEdit
       ? await updateDeck(deck.id, formData)
@@ -53,39 +56,72 @@ export function DeckFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (next) setDifficulty(deck?.difficulty ?? 1)
+      }}
+    >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'デッキを編集' : '新しいデッキ'}</DialogTitle>
+          <DialogTitle className="font-heading">
+            {isEdit ? 'デッキを編集' : '新しいデッキ'}
+          </DialogTitle>
         </DialogHeader>
         <form action={handleSubmit} className="space-y-4">
-          <div>
+          <div className="space-y-1.5">
             <Label htmlFor="name">デッキ名</Label>
             <Input id="name" name="name" defaultValue={deck?.name} required />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <Label htmlFor="description">説明</Label>
-            <Input id="description" name="description" defaultValue={deck?.description ?? ''} />
-          </div>
-          <div>
-            <Label htmlFor="genre">ジャンル</Label>
-            <Input id="genre" name="genre" defaultValue={deck?.genre ?? ''} placeholder="例: 歴史, 英単語" />
-          </div>
-          <div>
-            <Label htmlFor="difficulty">難易度(1〜5)</Label>
-            <Input
-              id="difficulty"
-              name="difficulty"
-              type="number"
-              min={1}
-              max={5}
-              defaultValue={deck?.difficulty ?? 1}
+            <Textarea
+              id="description"
+              name="description"
+              defaultValue={deck?.description ?? ''}
+              rows={2}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="genre">ジャンル</Label>
+            <Input
+              id="genre"
+              name="genre"
+              defaultValue={deck?.genre ?? ''}
+              placeholder="例: 歴史, 英単語"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>難易度</Label>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                {Array.from({ length: 5 }).map((_, i) => {
+                  const level = i + 1
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setDifficulty(level)}
+                      aria-label={`難易度 ${level}`}
+                      className="p-0.5"
+                    >
+                      <span
+                        className={`block h-3 w-3 rounded-full transition-colors ${
+                          level <= difficulty ? 'bg-primary' : 'bg-border'
+                        }`}
+                      />
+                    </button>
+                  )
+                })}
+              </div>
+              <span className="font-mono text-sm text-muted-foreground">{difficulty} / 5</span>
+            </div>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
-              {isEdit ? '更新' : '作成'}
+              {isPending ? '保存中...' : isEdit ? '更新' : '作成'}
             </Button>
           </DialogFooter>
         </form>

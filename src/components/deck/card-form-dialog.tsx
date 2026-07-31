@@ -4,14 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -31,6 +25,11 @@ type CardItem = {
   cloze_text: string | null
   note: string | null
 }
+
+const CARD_TYPES = [
+  { value: 'basic', label: '表→裏', colorVar: 'var(--chart-1)' },
+  { value: 'cloze', label: '穴埋め', colorVar: 'var(--chart-2)' },
+] as const
 
 export function CardFormDialog({
   deckId,
@@ -65,46 +64,78 @@ export function CardFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (next) setCardType(card?.card_type ?? 'basic')
+      }}
+    >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'カードを編集' : '新しいカード'}</DialogTitle>
+          <DialogTitle className="font-heading">
+            {isEdit ? 'カードを編集' : '新しいカード'}
+          </DialogTitle>
         </DialogHeader>
         <form action={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="card_type">出題形式</Label>
-            <Select value={cardType} onValueChange={setCardType}>
-              <SelectTrigger id="card_type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="basic">表→裏(基本)</SelectItem>
-                <SelectItem value="cloze">穴埋め(Cloze)</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="space-y-1.5">
+            <Label>出題形式</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {CARD_TYPES.map((t) => {
+                const active = cardType === t.value
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setCardType(t.value)}
+                    className={`relative flex items-center gap-2 overflow-hidden rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      active
+                        ? 'border-transparent bg-secondary text-secondary-foreground'
+                        : 'border-border text-muted-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: t.colorVar }}
+                    />
+                    {t.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-          <div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="front">表面</Label>
-            <Input id="front" name="front" defaultValue={card?.front} required />
+            <Textarea id="front" name="front" defaultValue={card?.front} rows={2} required />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <Label htmlFor="back">裏面</Label>
-            <Input id="back" name="back" defaultValue={card?.back} required />
+            <Textarea id="back" name="back" defaultValue={card?.back} rows={2} required />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <Label htmlFor="note">コメント(裏面と同時に表示・任意)</Label>
-            <Input id="note" name="note" defaultValue={card?.note ?? ''} />
+            <Textarea id="note" name="note" defaultValue={card?.note ?? ''} rows={2} />
           </div>
           {cardType === 'cloze' && (
-            <div>
-              <Label htmlFor="cloze_text">穴埋め文({'{{c1::語句}}'} の形式)</Label>
-              <Input id="cloze_text" name="cloze_text" defaultValue={card?.cloze_text ?? ''} />
+            <div className="space-y-1.5">
+              <Label htmlFor="cloze_text">穴埋め文</Label>
+              <Input
+                id="cloze_text"
+                name="cloze_text"
+                defaultValue={card?.cloze_text ?? ''}
+                className="font-mono text-sm"
+                placeholder="例: 徳川幕府 第{{c1::15}}代将軍"
+              />
+              <p className="text-xs text-muted-foreground">
+                <span className="font-mono">{'{{c1::語句}}'}</span> の形式で穴埋め箇所を囲んでください
+              </p>
             </div>
           )}
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
-              {isEdit ? '更新' : '作成'}
+              {isPending ? '保存中...' : isEdit ? '更新' : '作成'}
             </Button>
           </DialogFooter>
         </form>
