@@ -155,7 +155,12 @@ export async function getDueCards(deckId: string): Promise<DueCard[]> {
   return due
 }
 
-export async function submitReview(deckId: string, cardId: string, rating: ReviewRating) {
+export async function submitReview(
+  deckId: string,
+  cardId: string,
+  rating: ReviewRating,
+  reviewedAt?: string
+) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -194,6 +199,64 @@ export async function submitReview(deckId: string, cardId: string, rating: Revie
   )
   if (upsertError) return { error: upsertError.message }
 
+  // 復習ログに1件追記(ストリーク/統計表示用)。reviewedAtはオフライン時にキューへ積んだ
+  // 実際の復習時刻。指定がなければサーバー受信時刻を使う。
+  const { error: logError } = await supabase.from('review_logs').insert({
+    user_id: user.id,
+    card_id: cardId,
+    deck_id: deckId,
+    rating,
+    reviewed_at: reviewedAt ?? new Date().toISOString(),
+  })
+  if (logError) {
+    // ログ記録の失敗で復習自体を失敗扱いにはしない(統計が多少ずれるだけなので握りつぶす)
+    console.error('review_logs insert failed:', logError.message)
+  }
+
   revalidatePath(`/review/${deckId}`)
   return { success: true }
+}
+
+export type ReviewStats = {
+  todayCount: number
+  streak: number
+}
+
+export async function getReviewStats(): Promise<ReviewStats> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { todayCount: 0, streak: 0 }
+
+  const since = new Date()
+  since.setUTCDate(since.getUTCDate() - 60)
+
+  const { data, error } = await supabase
+    .from('review_logs')
+    .select('reviewed_at')
+    .eq('user_id', user.id)
+    .gte('reviewed_at', since.toISOString())
+
+  if (error || !data) return { todayCount: 0, streak: 0 }
+
+  // 簡易実装: 日付の区切りをUTC基準で判定しています。ユーザーのタイムゾーンによっては
+  // 日をまたぐタイミングで1日ずれる場合があります(将来的にはクライアントのタイムゾーンを
+  // 受け取って判定する形に拡張できます)。
+  const dateStrings = new Set(data.map((r) => (r.reviewed_at as string).slice(0, 10)))
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayCount = data.filter((r) => (r.reviewed_at as string).slice(0, 10) === todayStr).length
+
+  let streak = 0
+  const cursor = new Date()
+  cursor.setUTCHours(0, 0, 0, 0)
+  if (!dateStrings.has(todayStr)) {
+    cursor.setUTCDate(cursor.getUTCDate() - 1)
+  }
+  while (dateStrings.has(cursor.toISOString().slice(0, 10))) {
+    streak++
+    cursor.setUTCDate(cursor.getUTCDate() - 1)
+  }
+
+  return { todayCount, streak }
 }

@@ -13,6 +13,8 @@ import {
   type OfflineDueCard,
 } from '@/lib/offline/sync'
 import type { ReviewRating } from '@/lib/fsrs/scheduler'
+import type { ReviewStats } from '@/lib/actions/reviews'
+import { ReviewStatsBar } from './review-stats-bar'
 import { toast } from 'sonner'
 import { WifiOff, PartyPopper } from 'lucide-react'
 
@@ -48,12 +50,19 @@ const RATING_CONFIG: {
   },
 ]
 
-export function ReviewSession({ deckId }: { deckId: string }) {
+export function ReviewSession({
+  deckId,
+  initialStats,
+}: {
+  deckId: string
+  initialStats: ReviewStats
+}) {
   const [cards, setCards] = useState<OfflineDueCard[] | null>(null)
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
   const [rating, setRating] = useState<ReviewRating | null>(null)
+  const [sessionReviewedCount, setSessionReviewedCount] = useState(0)
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement>(null)
 
@@ -85,11 +94,19 @@ export function ReviewSession({ deckId }: { deckId: string }) {
   const current = cards?.[index]
   const isDone = cards ? index >= cards.length : false
 
+  // サーバーから取得した「今日の復習数/連続日数」に、このセッション中に完了した分を
+  // 即時反映する。今日まだ1件も復習していなかった状態から1件でも評価したら、
+  // 連続日数は今日の分だけ+1する。
+  const displayedTodayCount = initialStats.todayCount + sessionReviewedCount
+  const displayedStreak =
+    initialStats.streak + (sessionReviewedCount > 0 && initialStats.todayCount === 0 ? 1 : 0)
+
   const handleRate = useCallback(
     async (r: ReviewRating) => {
       if (!current || rating) return
       setRating(r)
       await applyReviewOffline(deckId, current.id, r)
+      setSessionReviewedCount((c) => c + 1)
       setTimeout(() => {
         setIndex((i) => i + 1)
         setFlipped(false)
@@ -136,7 +153,8 @@ export function ReviewSession({ deckId }: { deckId: string }) {
 
   if (cards.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 py-24 text-center">
+      <div className="flex flex-col items-center gap-4 py-24 text-center">
+        <ReviewStatsBar streak={displayedStreak} todayCount={displayedTodayCount} />
         <PartyPopper className="h-8 w-8 text-primary" strokeWidth={1.5} />
         <p className="font-heading text-lg font-bold">今日はここまで</p>
         <p className="text-sm text-muted-foreground">今復習するカードはありません。</p>
@@ -149,7 +167,8 @@ export function ReviewSession({ deckId }: { deckId: string }) {
 
   if (isDone) {
     return (
-      <div className="flex flex-col items-center gap-3 py-24 text-center">
+      <div className="flex flex-col items-center gap-4 py-24 text-center">
+        <ReviewStatsBar streak={displayedStreak} todayCount={displayedTodayCount} />
         <PartyPopper className="h-9 w-9 text-primary" strokeWidth={1.5} />
         <p className="font-heading text-xl font-bold">お疲れさまでした！</p>
         <p className="font-mono text-sm text-muted-foreground">{cards.length} 枚のカードを復習しました</p>
@@ -172,6 +191,8 @@ export function ReviewSession({ deckId }: { deckId: string }) {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
+      <ReviewStatsBar streak={displayedStreak} todayCount={displayedTodayCount} />
+
       {isOffline && (
         <div className="flex items-center justify-center gap-2 rounded-md bg-muted py-2 text-sm text-muted-foreground">
           <WifiOff className="h-4 w-4" />

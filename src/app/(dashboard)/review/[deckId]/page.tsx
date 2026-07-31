@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getDeck } from '@/lib/actions/decks'
+import { getReviewStats } from '@/lib/actions/reviews'
 import { ReviewSession } from '@/components/review/review-session'
 import { ArrowLeft } from 'lucide-react'
 
@@ -34,6 +35,8 @@ export default async function ReviewPage({
   }
   if (!deck) notFound()
 
+  const stats = await getReviewStats()
+
   return (
     <div className="space-y-6">
       <Link
@@ -44,7 +47,7 @@ export default async function ReviewPage({
         {deck.name} に戻る
       </Link>
       <h1 className="font-heading text-xl font-bold">{deck.name} — 復習</h1>
-      <ReviewSession deckId={deckId} />
+      <ReviewSession deckId={deckId} initialStats={stats} />
     </div>
   )
 }

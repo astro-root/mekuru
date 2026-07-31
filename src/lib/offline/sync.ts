@@ -115,7 +115,7 @@ export async function syncPendingReviews(deckId: string): Promise<void> {
 
   for (const item of pending) {
     try {
-      const result = await submitReview(item.deckId, item.cardId, item.rating as ReviewRating)
+      const result = await submitReview(item.deckId, item.cardId, item.rating as ReviewRating, item.reviewedAt)
       if (result?.error) break // サーバー側エラー。同じカードの後続評価の順序を守るため中断
       await db.reviewQueue.update(item.id, { synced: 1 })
     } catch {
