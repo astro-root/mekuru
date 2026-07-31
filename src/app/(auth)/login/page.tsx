@@ -138,6 +138,18 @@ export default function LoginPage() {
               <span>{message}</span>
             </div>
           )}
+
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            登録することで
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">
+              利用規約
+            </a>
+            および
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">
+              プライバシーポリシー
+            </a>
+            に同意したものとみなされます。
+          </p>
         </div>
       </div>
     </div>

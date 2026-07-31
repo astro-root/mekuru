@@ -1,11 +1,13 @@
 import { signOut } from '@/lib/actions/auth'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { SiteFooter } from '@/components/site-footer'
 import Link from 'next/link'
+import { History } from 'lucide-react'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <header className="border-b bg-card">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link href="/decks" className="flex items-center gap-2 group">
@@ -23,6 +25,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="font-heading text-lg font-bold tracking-wide">めくる</span>
           </Link>
           <div className="flex items-center gap-1">
+            <Link href="/history">
+              <Button variant="ghost" size="sm">
+                <History className="mr-1 h-4 w-4" />
+                履歴
+              </Button>
+            </Link>
             <ThemeToggle />
             <form action={signOut}>
               <Button type="submit" variant="ghost" size="sm">
@@ -32,7 +40,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+      <SiteFooter />
     </div>
   )
 }
