@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Shippori_Mincho, Zen_Kaku_Gothic_New, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
@@ -26,6 +26,26 @@ export const metadata: Metadata = {
     template: "%s | めくる",
   },
   description: "間隔反復(FSRS)でめくりながら覚える暗記プラットフォーム。オフライン対応、インポート/エクスポート対応。",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "めくる",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F5F4EF" },
+    { media: "(prefers-color-scheme: dark)", color: "#14171F" },
+  ],
 };
 
 export default function RootLayout({
