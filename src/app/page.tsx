@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { HeroFlipDemo } from '@/components/marketing/hero-flip-demo'
+import { ThemeToggle } from '@/components/theme-toggle'
 import {
   BrainCircuit,
   WifiOff,
@@ -46,9 +47,12 @@ export default function LandingPage() {
             </svg>
             <span className="font-heading text-lg font-bold tracking-wide">めくる</span>
           </div>
-          <Link href="/login">
-            <Button variant="ghost" size="sm">ログイン</Button>
-          </Link>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <Link href="/login">
+              <Button variant="ghost" size="sm">ログイン</Button>
+            </Link>
+          </div>
         </div>
       </header>
 

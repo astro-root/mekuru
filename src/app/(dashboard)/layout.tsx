@@ -1,5 +1,6 @@
 import { signOut } from '@/lib/actions/auth'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/theme-toggle'
 import Link from 'next/link'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -21,11 +22,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </svg>
             <span className="font-heading text-lg font-bold tracking-wide">めくる</span>
           </Link>
-          <form action={signOut}>
-            <Button type="submit" variant="ghost" size="sm">
-              ログアウト
-            </Button>
-          </form>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <form action={signOut}>
+              <Button type="submit" variant="ghost" size="sm">
+                ログアウト
+              </Button>
+            </form>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
