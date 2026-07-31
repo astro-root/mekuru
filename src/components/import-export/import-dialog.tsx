@@ -20,6 +20,7 @@ export function ImportDialog({ deckId }: { deckId: string }) {
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<ParsedRow[]>([])
   const [skipped, setSkipped] = useState(0)
+  const [hadHeader, setHadHeader] = useState(true)
   const [fileName, setFileName] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -40,13 +41,10 @@ export function ImportDialog({ deckId }: { deckId: string }) {
       }
       setRows(result.rows)
       setSkipped(result.skipped)
+      setHadHeader(result.hadHeader)
 
       if (result.rows.length === 0) {
-        toast.error(
-          result.skipped > 0
-            ? 'front/backのどちらかが空の行しかありませんでした。内容をご確認ください。'
-            : '列名(front/back または 表/裏、問題/答え)が見つかりませんでした。1行目が見出し行になっているかご確認ください。'
-        )
+        toast.error('front・backの両方が入った行が見つかりませんでした。内容をご確認ください。')
       }
     } catch {
       toast.error('ファイルの読み込みに失敗しました。ファイル形式(.csv / .xlsx / .xls)をご確認ください。')
@@ -95,6 +93,7 @@ export function ImportDialog({ deckId }: { deckId: string }) {
           setRows([])
           setFileName(null)
           setIsDragging(false)
+          setHadHeader(true)
         }
       }}
     >
@@ -111,7 +110,8 @@ export function ImportDialog({ deckId }: { deckId: string }) {
 
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            列名は front/back(または 表/裏、問題/答え)、コメント列は note(またはコメント)を認識します。
+            1行目が front/back(または 表/裏、問題/答え)などの見出しならそれを使い、見出しが無ければ
+            1列目=表・2列目=裏・3列目=コメントとしてそのまま読み込みます。
           </p>
 
           <input
@@ -131,9 +131,9 @@ export function ImportDialog({ deckId }: { deckId: string }) {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed py-8 text-center transition-colors ${
+            className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed py-8 text-center transition-all duration-200 ${
               isDragging
-                ? 'border-primary bg-secondary/50'
+                ? 'scale-[1.01] border-primary bg-secondary/50'
                 : 'border-border hover:border-foreground/25 hover:bg-muted/40'
             }`}
           >
@@ -151,11 +151,14 @@ export function ImportDialog({ deckId }: { deckId: string }) {
           </div>
 
           {rows.length > 0 && (
-            <div className="space-y-2">
+            <div className="animate-in fade-in slide-in-from-top-1 duration-300 space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
                 <span className="font-mono tabular-nums">{rows.length}</span>
                 <span>枚を読み込みました</span>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {hadHeader ? '見出し行を検出' : '見出し行なし(1列目から適用)'}
+                </span>
               </div>
               {skipped > 0 && (
                 <div className="flex items-center gap-2 text-sm text-[var(--destructive)]">
