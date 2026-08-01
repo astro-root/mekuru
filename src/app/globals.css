@@ -5,8 +5,11 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ページごとの縦の長さでスクロールバーの有無が変わり、中央寄せのmax-wコンテナの
-   実効幅がページ間でわずかにズレる問題を防ぐため、スクロールバー分の余白を常に確保する */
+   実効幅がページ間でわずかにズレる問題を防ぐため、スクロールバーを常に表示させて
+   幅を固定する。scrollbar-gutterは対応していないブラウザがあるため、
+   より互換性の高いoverflow-y: scrollを主たる手段として使う。 */
 html {
+  overflow-y: scroll;
   scrollbar-gutter: stable;
 }
 
