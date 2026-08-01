@@ -8,6 +8,7 @@ import { renderClozeQuestion, renderClozeAnswer } from '@/lib/cloze'
 import {
   hydrateDeckCache,
   getCachedDueCards,
+  getCachedCardsByIds,
   applyReviewOffline,
   syncPendingReviews,
   type OfflineDueCard,
@@ -47,8 +48,15 @@ const RATING_CONFIG: {
 
 type OrderMode = 'sequential' | 'random'
 
-const SWIPE_COMMIT_THRESHOLD = 90 // これ以上動かすとその場で評価が確定する
-const SWIPE_DIRECTION_RATIO = 1.5 // 横移動が縦移動よりこの倍率以上大きければ「横スワイプ」とみなす
+type SessionSnapshot = {
+  date: string
+  cardIds: string[]
+  liveIndex: number
+  orderMode: OrderMode
+}
+
+const SWIPE_COMMIT_THRESHOLD = 90
+const SWIPE_DIRECTION_RATIO = 1.5
 
 function shuffle<T>(arr: T[]): T[] {
   const copy = [...arr]
@@ -59,8 +67,41 @@ function shuffle<T>(arr: T[]): T[] {
   return copy
 }
 
-function orderModeStorageKey(deckId: string) {
-  return `mekuru:order-mode:${deckId}`
+// 「今日」の判定はサーバー側(getReviewStats)と同じくJST基準に揃える
+function todayJstStr(): string {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
+function snapshotKey(deckId: string) {
+  return `mekuru:session:${deckId}`
+}
+
+function readSnapshot(deckId: string): SessionSnapshot | null {
+  try {
+    const raw = localStorage.getItem(snapshotKey(deckId))
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (
+      parsed &&
+      typeof parsed.date === 'string' &&
+      Array.isArray(parsed.cardIds) &&
+      typeof parsed.liveIndex === 'number' &&
+      (parsed.orderMode === 'sequential' || parsed.orderMode === 'random')
+    ) {
+      return parsed as SessionSnapshot
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function writeSnapshot(deckId: string, snapshot: SessionSnapshot) {
+  try {
+    localStorage.setItem(snapshotKey(deckId), JSON.stringify(snapshot))
+  } catch {
+    // 保存できなくても致命的ではないので無視する
+  }
 }
 
 export function ReviewSession({
@@ -80,25 +121,45 @@ export function ReviewSession({
   const [rating, setRating] = useState<ReviewRating | null>(null)
   const [sessionReviewedCount, setSessionReviewedCount] = useState(0)
   const [orderMode, setOrderMode] = useState<OrderMode>('sequential')
-  const [dragX, setDragX] = useState(0) // スワイプ中のカードの横方向オフセット(px)
+  const [dragX, setDragX] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement>(null)
   const pointerStart = useRef<{ x: number; y: number } | null>(null)
 
+  // その日(JST)の出題バッチが既にあれば、番号・分母を引き継いで再開する。
+  // 日付が変わっていれば、その日ぶんの新しいバッチを作り直す。
   const loadCards = useCallback(async () => {
     await hydrateDeckCache(deckId)
-    const due = await getCachedDueCards(deckId) // 既定でposition昇順(=登録順)
 
-    let storedMode: OrderMode = 'sequential'
-    try {
-      const saved = localStorage.getItem(orderModeStorageKey(deckId))
-      if (saved === 'random' || saved === 'sequential') storedMode = saved
-    } catch {
-      // localStorageが使えない環境ではデフォルト(順番通り)を使う
+    const today = todayJstStr()
+    const snapshot = readSnapshot(deckId)
+
+    if (snapshot && snapshot.date === today) {
+      const restored = await getCachedCardsByIds(deckId, snapshot.cardIds)
+      const resumeAt = Math.min(snapshot.liveIndex, restored.length)
+      setOrderMode(snapshot.orderMode)
+      setCards(restored)
+      setLiveIndex(resumeAt)
+      setIndex(resumeAt)
+      return
     }
-    setOrderMode(storedMode)
-    setCards(storedMode === 'random' ? shuffle(due) : due)
+
+    // 出題順の好みは日をまたいでも引き継ぐ
+    const preferredOrderMode: OrderMode = snapshot?.orderMode ?? 'sequential'
+    const due = await getCachedDueCards(deckId) // 既定でposition昇順(=登録順)
+    const ordered = preferredOrderMode === 'random' ? shuffle(due) : due
+
+    setOrderMode(preferredOrderMode)
+    setCards(ordered)
+    setLiveIndex(0)
+    setIndex(0)
+    writeSnapshot(deckId, {
+      date: today,
+      cardIds: ordered.map((c) => c.id),
+      liveIndex: 0,
+      orderMode: preferredOrderMode,
+    })
   }, [deckId])
 
   useEffect(() => {
@@ -125,52 +186,60 @@ export function ReviewSession({
   const isDone = cards ? liveIndex >= cards.length && index >= liveIndex : false
 
   // 出題順(順番通り/ランダム)の切り替え。既に評価済みのカード(0〜liveIndex-1)は
-  // そのままにし、これから出題する分(liveIndex以降)だけ並び替える。
+  // そのままにし、これから出題する分(liveIndex以降)だけ並び替える。バッチの保存内容も更新する。
   const changeOrderMode = useCallback(
     (mode: OrderMode) => {
       setOrderMode(mode)
-      try {
-        localStorage.setItem(orderModeStorageKey(deckId), mode)
-      } catch {
-        // 保存に失敗しても致命的ではないので無視する
-      }
       setCards((prev) => {
         if (!prev) return prev
         const reviewed = prev.slice(0, liveIndex)
         const remaining = prev.slice(liveIndex)
         const reordered =
           mode === 'random' ? shuffle(remaining) : [...remaining].sort((a, b) => a.position - b.position)
-        return [...reviewed, ...reordered]
+        const next = [...reviewed, ...reordered]
+        writeSnapshot(deckId, {
+          date: todayJstStr(),
+          cardIds: next.map((c) => c.id),
+          liveIndex,
+          orderMode: mode,
+        })
+        return next
       })
     },
     [deckId, liveIndex]
   )
 
-  // サーバーから取得した「今日の復習数/連続日数」に、このセッション中に完了した分を
-  // 即時反映する。今日まだ1件も復習していなかった状態から1件でも評価したら、
-  // 連続日数は今日の分だけ+1する。
   const displayedTodayCount = initialStats.todayCount + sessionReviewedCount
   const displayedStreak =
     initialStats.streak + (sessionReviewedCount > 0 && initialStats.todayCount === 0 ? 1 : 0)
 
   const handleRate = useCallback(
     async (r: ReviewRating) => {
-      if (!current || rating || isReviewingPast) return
+      if (!current || rating || isReviewingPast || !cards) return
       setRating(r)
       await applyReviewOffline(deckId, current.id, r)
       setSessionReviewedCount((c) => c + 1)
+
+      const nextLiveIndex = liveIndex + 1
+      // 中断して戻った時に番号・分母を引き継げるよう、評価の都度バッチの進捗を保存する
+      writeSnapshot(deckId, {
+        date: todayJstStr(),
+        cardIds: cards.map((c) => c.id),
+        liveIndex: nextLiveIndex,
+        orderMode,
+      })
+
       setTimeout(() => {
         setIndex((i) => i + 1)
-        setLiveIndex((i) => i + 1)
+        setLiveIndex(nextLiveIndex)
         setFlipped(false)
         setRating(null)
         setDragX(0)
       }, 160)
     },
-    [current, deckId, rating, isReviewingPast]
+    [current, deckId, rating, isReviewingPast, cards, liveIndex, orderMode]
   )
 
-  // カードをタップすると、問題⇄答えを何度でも行き来できる
   const handleFlip = useCallback(() => {
     setFlipped((f) => !f)
   }, [])
@@ -193,8 +262,6 @@ export function ReviewSession({
     setFlipped(false)
   }, [liveIndex])
 
-  // ポインター(マウス/タッチ)操作。答えを見た状態でのみ、カードが指に追従して
-  // 傾き・色付けされ、どちら向きにスワイプしているか一目で分かるようにする。
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       pointerStart.current = { x: e.clientX, y: e.clientY }
@@ -243,8 +310,6 @@ export function ReviewSession({
     [flipped, isReviewingPast, handleRate, handleFlip]
   )
 
-  // キーボードショートカット: Space/Enter でめくる、左右矢印キーで「わからなかった/わかった」を評価。
-  // 過去カードの振り返り(前/次)はチェブロンボタンのクリック操作専用とし、矢印キーとは競合させない。
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (!current) return
@@ -324,7 +389,6 @@ export function ReviewSession({
       ? renderClozeAnswer(current!.clozeText)
       : current!.back
 
-  // ドラッグ量に応じた視覚フィードバック
   const dragProgress = Math.min(Math.abs(dragX) / SWIPE_COMMIT_THRESHOLD, 1)
   const dragRotation = Math.max(-12, Math.min(12, dragX / 12))
   const showAgainOverlay = dragX < -12
@@ -403,8 +467,6 @@ export function ReviewSession({
         </div>
       )}
 
-      {/* めくるカード本体: 3D flip。タップでめくる、答えを見た状態での横スワイプで評価。
-          ドラッグ中はカードが指に追従して傾き、方向に応じた色のオーバーレイが出る。 */}
       <div
         className="relative w-full cursor-pointer select-none touch-pan-y"
         style={{ perspective: '1600px' }}
@@ -427,7 +489,6 @@ export function ReviewSession({
             transition: isDragging ? 'none' : 'transform 500ms cubic-bezier(0.4,0.2,0.2,1)',
           }}
         >
-          {/* 表面: 問題 */}
           <div
             className="absolute inset-0 flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-card p-8 text-center shadow-sm"
             style={{ backfaceVisibility: 'hidden' }}
@@ -443,7 +504,6 @@ export function ReviewSession({
             )}
           </div>
 
-          {/* 裏面: 答え */}
           <div
             className="absolute inset-0 flex min-h-[300px] flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-primary/30 bg-card p-8 text-center shadow-md"
             style={{
@@ -451,7 +511,6 @@ export function ReviewSession({
               transform: 'rotateY(180deg)',
             }}
           >
-            {/* スワイプ方向のフィードバック(左=わからなかった、右=わかった) */}
             <div
               className="pointer-events-none absolute inset-0 flex items-center justify-start bg-[var(--destructive)] px-6 text-lg font-bold text-white transition-opacity"
               style={{ opacity: showAgainOverlay ? dragProgress * 0.9 : 0 }}

@@ -110,6 +110,31 @@ export async function applyReviewOffline(
   syncPendingReviews(deckId).catch(() => {})
 }
 
+export async function getCachedCardsByIds(
+  deckId: string,
+  ids: string[]
+): Promise<OfflineDueCard[]> {
+  const allCards = await db.cards.where({ deckId }).toArray()
+  const byId = new Map(allCards.map((c) => [c.id, c]))
+  const result: OfflineDueCard[] = []
+
+  for (const id of ids) {
+    const c = byId.get(id)
+    if (!c) continue // カードが削除された等、稀なケースはスキップする
+    result.push({
+      id: c.id,
+      front: c.front,
+      back: c.back,
+      cardType: c.cardType,
+      clozeText: c.clozeText,
+      note: c.note,
+      position: c.position,
+    })
+  }
+
+  return result
+}
+
 export async function syncPendingReviews(deckId: string): Promise<void> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return
 
