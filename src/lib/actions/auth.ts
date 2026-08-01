@@ -14,7 +14,10 @@ export async function signInWithEmail(formData: FormData) {
   if (error) {
     return { error: error.message }
   }
-  redirect('/decks')
+  // ここではredirect()を呼ばない。クライアント側のonClick/action実行元から
+  // router.push('/decks')で遷移させることで、サーバーアクションを直接
+  // クライアント関数から呼び出した際にredirect()が伝播しない問題を避ける。
+  return { success: true }
 }
 
 export async function signUpWithEmail(formData: FormData) {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { signInWithEmail, signUpWithEmail, signInWithGoogle } from '@/lib/actions/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [message, setMessage] = useState<string | null>(null)
   const [isError, setIsError] = useState(false)
   const [isPending, setIsPending] = useState(false)
@@ -20,8 +22,11 @@ export default function LoginPage() {
     if (result?.error) {
       setIsError(true)
       setMessage(result.error)
+      setIsPending(false)
+      return
     }
-    setIsPending(false)
+    router.push('/decks')
+    router.refresh()
   }
 
   async function handleSignUp(formData: FormData) {
