@@ -31,7 +31,13 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'difficulty_asc', label: '難易度が低い順' },
 ]
 
-export function DeckList({ decks }: { decks: Deck[] }) {
+export function DeckList({
+  decks,
+  dueCounts = {},
+}: {
+  decks: Deck[]
+  dueCounts?: Record<string, number>
+}) {
   const [query, setQuery] = useState('')
   const [genre, setGenre] = useState<string>('all')
   const [sort, setSort] = useState<SortKey>('updated_desc')
@@ -151,7 +157,7 @@ export function DeckList({ decks }: { decks: Deck[] }) {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {filtered.map((deck) => (
-            <DeckCard key={deck.id} deck={deck} />
+            <DeckCard key={deck.id} deck={deck} dueCount={dueCounts[deck.id] ?? 0} />
           ))}
         </div>
       )}

@@ -10,7 +10,7 @@ type Deck = {
   difficulty: number
 }
 
-export function DeckCard({ deck }: { deck: Deck }) {
+export function DeckCard({ deck, dueCount = 0 }: { deck: Deck; dueCount?: number }) {
   return (
     <Link href={`/decks/${deck.id}`} className="group block h-full">
       <div
@@ -41,6 +41,9 @@ export function DeckCard({ deck }: { deck: Deck }) {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-3">
+          {dueCount > 0 && (
+            <Badge className="font-mono tabular-nums">今日 {dueCount}枚</Badge>
+          )}
           {deck.genre && <Badge variant="secondary">{deck.genre}</Badge>}
           <div className="flex items-center gap-1" title={`難易度 ${deck.difficulty} / 5`}>
             {Array.from({ length: 5 }).map((_, i) => (

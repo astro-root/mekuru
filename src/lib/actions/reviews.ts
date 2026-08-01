@@ -227,6 +227,44 @@ export async function submitReview(
   return { success: true }
 }
 
+/**
+ * ログインユーザーの全デッキについて、デッキごとの「今日めくれるカード数」をまとめて計算する。
+ * デッキごとにgetDueCardsを呼ぶとデッキ数×2回のクエリが発生してしまうため、
+ * cards/card_reviewsを1回ずつ取得してメモリ上で集計する。
+ */
+export async function getDueCountsByDeck(): Promise<Record<string, number>> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return {}
+
+  const { data: cards, error: cardsError } = await supabase
+    .from('cards')
+    .select('id, deck_id')
+  if (cardsError || !cards) return {}
+
+  const { data: reviews, error: reviewsError } = await supabase
+    .from('card_reviews')
+    .select('*')
+    .eq('user_id', user.id)
+  if (reviewsError) return {}
+
+  const reviewByCardId = new Map((reviews ?? []).map((r) => [r.card_id, r]))
+  const now = new Date()
+  const counts: Record<string, number> = {}
+
+  for (const card of cards) {
+    const reviewRow = reviewByCardId.get(card.id)
+    const dueNow = !reviewRow || isDue(rowToFsrsCard(reviewRow), now)
+    if (dueNow) {
+      counts[card.deck_id] = (counts[card.deck_id] ?? 0) + 1
+    }
+  }
+
+  return counts
+}
+
 export type ReviewStats = {
   todayCount: number
   streak: number

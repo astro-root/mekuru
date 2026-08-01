@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getDecks } from '@/lib/actions/decks'
+import { getDueCountsByDeck } from '@/lib/actions/reviews'
 import { Button } from '@/components/ui/button'
 import { DeckFormDialog } from '@/components/deck/deck-form-dialog'
 import { DeckList } from '@/components/deck/deck-list'
@@ -10,7 +11,8 @@ export const metadata: Metadata = {
 }
 
 export default async function DecksPage() {
-  const decks = await getDecks()
+  const [decks, dueCounts] = await Promise.all([getDecks(), getDueCountsByDeck()])
+  const totalDue = Object.values(dueCounts).reduce((sum, n) => sum + n, 0)
 
   return (
     <div className="space-y-6">
@@ -20,6 +22,11 @@ export default async function DecksPage() {
           <p className="mt-0.5 text-sm text-muted-foreground">
             {decks.length > 0 ? `${decks.length} 個のデッキ` : '今日から始めましょう'}
           </p>
+          {totalDue > 0 && (
+            <p className="mt-1 font-mono text-sm font-bold text-primary">
+              今日の復習: {totalDue}枚
+            </p>
+          )}
         </div>
         <DeckFormDialog
           trigger={
@@ -47,7 +54,7 @@ export default async function DecksPage() {
           />
         </div>
       ) : (
-        <DeckList decks={decks} />
+        <DeckList decks={decks} dueCounts={dueCounts} />
       )}
     </div>
   )
