@@ -11,6 +11,7 @@ import {
   getCachedCardsByIds,
   applyReviewOffline,
   syncPendingReviews,
+  getPendingReviewCount,
   getIntervalPreview,
   type OfflineDueCard,
 } from '@/lib/offline/sync'
@@ -119,6 +120,7 @@ export function ReviewSession({
   const [liveIndex, setLiveIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
+  const [pendingReviewCount, setPendingReviewCount] = useState(0)
   const [rating, setRating] = useState<ReviewRating | null>(null)
   const [sessionReviewedCount, setSessionReviewedCount] = useState(0)
   const [orderMode, setOrderMode] = useState<OrderMode>('sequential')
@@ -167,9 +169,18 @@ export function ReviewSession({
     loadCards()
     setIsOffline(typeof navigator !== 'undefined' && !navigator.onLine)
 
+    function refreshPendingCount() {
+      getPendingReviewCount(deckId)
+        .then(setPendingReviewCount)
+        .catch(() => {})
+    }
+    refreshPendingCount()
+
     function handleOnline() {
       setIsOffline(false)
-      syncPendingReviews(deckId).catch(() => {})
+      syncPendingReviews(deckId)
+        .then(() => refreshPendingCount())
+        .catch(() => {})
     }
     function handleOffline() {
       setIsOffline(true)
@@ -221,6 +232,9 @@ export function ReviewSession({
       setRating(r)
       await applyReviewOffline(deckId, current.id, r)
       setSessionReviewedCount((c) => c + 1)
+      getPendingReviewCount(deckId)
+        .then(setPendingReviewCount)
+        .catch(() => {})
 
       const nextLiveIndex = liveIndex + 1
       // 中断して戻った時に番号・分母を引き継げるよう、評価の都度バッチの進捗を保存する
@@ -404,6 +418,13 @@ export function ReviewSession({
         <div className="animate-in fade-in flex items-center justify-center gap-2 rounded-md bg-muted py-2 text-sm text-muted-foreground">
           <WifiOff className="h-4 w-4" />
           オフラインです。学習結果は接続が戻り次第自動で送信されます。
+        </div>
+      )}
+
+      {!isOffline && pendingReviewCount > 0 && (
+        <div className="animate-in fade-in flex items-center justify-center gap-2 rounded-md bg-muted py-2 text-sm text-muted-foreground">
+          <span className="font-mono tabular-nums">{pendingReviewCount}</span>
+          <span>件の学習結果を送信中です...</span>
         </div>
       )}
 

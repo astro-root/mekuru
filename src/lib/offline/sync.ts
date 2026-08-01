@@ -138,8 +138,21 @@ export async function getCachedCardsByIds(
   return result
 }
 
-export async function syncPendingReviews(deckId: string): Promise<void> {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) return
+export type SyncSummary = {
+  syncedCount: number
+  discardedCount: number
+  remainingCount: number
+}
+
+/**
+ * 未同期の評価をサーバーへ送信する。
+ * - 通信断など「一時的エラー」: そこで中断し、残りは次回の同期に持ち越す(順序を守るため)
+ * - 対象カードが既に削除済みなど「恒久的エラー」: そのカードの評価だけキューから除外し、
+ *   後続カードの評価の同期がブロックされ続けないようにする
+ */
+export async function syncPendingReviews(deckId: string): Promise<SyncSummary> {
+  const summary: SyncSummary = { syncedCount: 0, discardedCount: 0, remainingCount: 0 }
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return summary
 
   const pending = await db.reviewQueue
     .where({ deckId, synced: 0 })
@@ -148,12 +161,40 @@ export async function syncPendingReviews(deckId: string): Promise<void> {
   for (const item of pending) {
     try {
       const result = await submitReview(item.deckId, item.cardId, item.rating as ReviewRating, item.reviewedAt, item.id)
-      if (result?.error) break // サーバー側エラー。同じカードの後続評価の順序を守るため中断
+      if (result?.error) {
+        if ('permanent' in result && result.permanent) {
+          // リトライしても解決しないエラーなので、このカードの評価だけ諦めて次へ進む
+          await db.reviewQueue.update(item.id, { synced: 1 })
+          summary.discardedCount++
+          continue
+        }
+        break // サーバー側エラー(一時的)。同じカードの後続評価の順序を守るため中断
+      }
       await db.reviewQueue.update(item.id, { synced: 1 })
+      summary.syncedCount++
     } catch {
       break // オフラインに戻った等。残りは次回の同期に持ち越す
     }
   }
+
+  summary.remainingCount = await db.reviewQueue.where({ deckId, synced: 0 }).count()
+  await pruneSyncedReviewQueue(deckId)
+  return summary
+}
+
+/** 同期済みで一定期間経過したキュー項目を削除し、IndexedDBの肥大化を防ぐ */
+export async function pruneSyncedReviewQueue(deckId: string, olderThanMs = 7 * 24 * 60 * 60 * 1000): Promise<void> {
+  const threshold = new Date(Date.now() - olderThanMs).toISOString()
+  const staleSynced = await db.reviewQueue.where({ deckId, synced: 1 }).toArray()
+  const idsToDelete = staleSynced.filter((item) => item.reviewedAt < threshold).map((item) => item.id)
+  if (idsToDelete.length > 0) {
+    await db.reviewQueue.bulkDelete(idsToDelete)
+  }
+}
+
+/** UI表示用: 現在キューに残っている未同期の評価件数 */
+export async function getPendingReviewCount(deckId: string): Promise<number> {
+  return db.reviewQueue.where({ deckId, synced: 0 }).count()
 }
 
 function formatIntervalLabel(days: number): string {

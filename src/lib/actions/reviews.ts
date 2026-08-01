@@ -171,6 +171,20 @@ export async function submitReview(
   } = await supabase.auth.getUser()
   if (!user) return { error: '認証されていません' }
 
+  // カードが既に削除されている場合(他端末での削除、デッキ削除など)は、
+  // card_reviewsへの外部キー制約違反になる前に検出し、恒久的エラーとして返す。
+  // オフライン同期側は、このケースだけを「リトライしても解決しない」ものとして
+  // キューから除外し、後続の評価の同期をブロックしないようにする。
+  const { data: cardExists, error: cardCheckError } = await supabase
+    .from('cards')
+    .select('id')
+    .eq('id', cardId)
+    .maybeSingle()
+  if (cardCheckError) return { error: cardCheckError.message }
+  if (!cardExists) {
+    return { error: 'このカードは既に削除されています', permanent: true as const }
+  }
+
   const { data: existingRow, error: fetchError } = await supabase
     .from('card_reviews')
     .select('*')
