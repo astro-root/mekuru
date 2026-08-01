@@ -11,6 +11,7 @@ import {
   getCachedCardsByIds,
   applyReviewOffline,
   syncPendingReviews,
+  getIntervalPreview,
   type OfflineDueCard,
 } from '@/lib/offline/sync'
 import type { ReviewRating } from '@/lib/fsrs/scheduler'
@@ -182,6 +183,7 @@ export function ReviewSession({
   }, [deckId, loadCards])
 
   const current = cards?.[index]
+  const intervalPreview = current ? getIntervalPreview(current.fsrsState) : null
   const isReviewingPast = index < liveIndex
   const isDone = cards ? liveIndex >= cards.length && index >= liveIndex : false
 
@@ -567,6 +569,9 @@ export function ReviewSession({
               } transition-transform`}
             >
               <span>{r.label}</span>
+              {intervalPreview && (
+                <span className="font-mono text-[11px] opacity-70">次: {intervalPreview[r.key]}</span>
+              )}
               <span className="font-mono text-xs opacity-60">{r.shortcut}</span>
             </Button>
           ))}

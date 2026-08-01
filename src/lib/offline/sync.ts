@@ -3,7 +3,7 @@ import { createEmptyCard, type Card } from 'ts-fsrs'
 import { scheduleReview, isDue, type ReviewRating } from '@/lib/fsrs/scheduler'
 import { submitReview, getDeckCardsWithState, type CardWithState } from '@/lib/actions/reviews'
 
-function parseFsrsState(json: string): Card {
+export function parseFsrsState(json: string): Card {
   const raw = JSON.parse(json)
   return {
     ...raw,
@@ -61,6 +61,7 @@ export type OfflineDueCard = {
   clozeText: string | null
   note: string | null
   position: number
+  fsrsState: string
 }
 
 export async function getCachedDueCards(deckId: string): Promise<OfflineDueCard[]> {
@@ -78,6 +79,7 @@ export async function getCachedDueCards(deckId: string): Promise<OfflineDueCard[
       clozeText: c.clozeText,
       note: c.note,
       position: c.position,
+      fsrsState: c.fsrsState,
     }))
 }
 
@@ -129,6 +131,7 @@ export async function getCachedCardsByIds(
       clozeText: c.clozeText,
       note: c.note,
       position: c.position,
+      fsrsState: c.fsrsState,
     })
   }
 
@@ -151,4 +154,25 @@ export async function syncPendingReviews(deckId: string): Promise<void> {
       break // オフラインに戻った等。残りは次回の同期に持ち越す
     }
   }
+}
+
+function formatIntervalLabel(days: number): string {
+  if (days < 1) return '1日以内'
+  if (days < 30) return `${Math.round(days)}日後`
+  if (days < 365) return `${Math.round(days / 30)}ヶ月後`
+  return `${Math.round(days / 365)}年後`
+}
+
+/** 「わからなかった」「わかった」それぞれを選んだ場合、次回いつ復習になるかを事前計算する */
+export function getIntervalPreview(fsrsStateJson: string): Record<ReviewRating, string> {
+  const now = new Date()
+  const currentCard = parseFsrsState(fsrsStateJson)
+
+  const preview = {} as Record<ReviewRating, string>
+  for (const r of ['again', 'good'] as ReviewRating[]) {
+    const result = scheduleReview(currentCard, r, now)
+    const days = (result.card.due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    preview[r] = formatIntervalLabel(days)
+  }
+  return preview
 }
