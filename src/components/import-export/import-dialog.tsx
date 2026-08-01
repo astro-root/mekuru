@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Link as LinkIcon } from 'lucide-react'
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Link as LinkIcon, DatabaseBackup } from 'lucide-react'
 import {
   parseCsv,
   parseExcel,
@@ -21,12 +21,20 @@ import {
   type ParseResult,
 } from '@/lib/import-export/parse'
 import { createCardsBulk } from '@/lib/actions/cards'
+import { restoreDeckBackup } from '@/lib/actions/backup'
 import { toast } from 'sonner'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 
+type BackupPreview = {
+  raw: unknown
+  cardCount: number
+  reviewCount: number
+}
+
 export function ImportDialog({ deckId }: { deckId: string }) {
   const [open, setOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'file' | 'gsheet' | 'backup'>('file')
   const [rows, setRows] = useState<ParsedRow[]>([])
   const [skipped, setSkipped] = useState(0)
   const [hadHeader, setHadHeader] = useState(true)
@@ -35,7 +43,10 @@ export function ImportDialog({ deckId }: { deckId: string }) {
   const [isDragging, setIsDragging] = useState(false)
   const [gsheetUrl, setGsheetUrl] = useState('')
   const [isFetchingGsheet, setIsFetchingGsheet] = useState(false)
+  const [backupFileName, setBackupFileName] = useState<string | null>(null)
+  const [backupPreview, setBackupPreview] = useState<BackupPreview | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const backupInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
   async function handleFile(file: File) {
@@ -92,6 +103,66 @@ export function ImportDialog({ deckId }: { deckId: string }) {
     setRows([])
     setFileName(null)
     router.refresh()
+  }
+
+  async function handleBackupFile(file: File) {
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      toast.error('.json形式のバックアップファイルを選択してください')
+      return
+    }
+    if (file.size > MAX_IMPORT_FILE_SIZE_BYTES) {
+      toast.error(`ファイルサイズが大きすぎます(上限 ${MAX_IMPORT_FILE_SIZE_BYTES / 1024 / 1024}MB)`)
+      return
+    }
+
+    setBackupFileName(file.name)
+    setBackupPreview(null)
+    try {
+      const text = await file.text()
+      const raw = JSON.parse(text)
+      const cards = Array.isArray(raw?.cards) ? raw.cards : null
+      if (!cards) {
+        toast.error('バックアップファイルの形式が正しくありません(cardsが見つかりません)')
+        return
+      }
+      const reviewCount = cards.filter(
+        (c: { review?: unknown }) => c && typeof c === 'object' && c.review
+      ).length
+      setBackupPreview({ raw, cardCount: cards.length, reviewCount })
+    } catch {
+      toast.error('JSONファイルの読み込みに失敗しました。ファイルが壊れていないかご確認ください。')
+    }
+  }
+
+  async function handleConfirmBackupRestore() {
+    if (!backupPreview) return
+    setIsPending(true)
+    const result = await restoreDeckBackup(deckId, backupPreview.raw)
+    setIsPending(false)
+
+    if (result?.error) {
+      toast.error(result.error)
+      return
+    }
+    toast.success(
+      `${result?.count ?? 0}枚のカードを復元しました(学習状態: ${result?.restoredReviews ?? 0}枚分)`
+    )
+    setOpen(false)
+    setBackupPreview(null)
+    setBackupFileName(null)
+    router.refresh()
+  }
+
+  function handleBackupDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  function handleBackupDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) handleBackupFile(file)
   }
 
   async function handleGsheetImport() {
@@ -156,6 +227,9 @@ export function ImportDialog({ deckId }: { deckId: string }) {
           setFileName(null)
           setIsDragging(false)
           setHadHeader(true)
+          setActiveTab('file')
+          setBackupFileName(null)
+          setBackupPreview(null)
         }
       }}
     >
@@ -167,19 +241,15 @@ export function ImportDialog({ deckId }: { deckId: string }) {
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="font-heading">CSV/Excelからインポート</DialogTitle>
+          <DialogTitle className="font-heading">インポート</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            1行目が front/back(または 表/裏、問題/答え)などの見出しならそれを使い、見出しが無ければ
-            1列目=表・2列目=裏・3列目=コメントとしてそのまま読み込みます。
-          </p>
-
-          <Tabs defaultValue="file">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
             <TabsList>
               <TabsTrigger value="file">ファイルから</TabsTrigger>
               <TabsTrigger value="gsheet">Googleスプレッドシートのリンクから</TabsTrigger>
+              <TabsTrigger value="backup">バックアップ(JSON)から復元</TabsTrigger>
             </TabsList>
             <TabsContent value="gsheet" className="space-y-2 pt-3">
               <p className="text-xs text-muted-foreground">
@@ -202,7 +272,11 @@ export function ImportDialog({ deckId }: { deckId: string }) {
                 </Button>
               </div>
             </TabsContent>
-            <TabsContent value="file" className="pt-3">
+            <TabsContent value="file" className="space-y-3 pt-3">
+          <p className="text-xs text-muted-foreground">
+            1行目が front/back(または 表/裏、問題/答え)などの見出しならそれを使い、見出しが無ければ
+            1列目=表・2列目=裏・3列目=コメントとしてそのまま読み込みます。
+          </p>
 
           <input
             ref={fileInputRef}
@@ -239,6 +313,59 @@ export function ImportDialog({ deckId }: { deckId: string }) {
               </>
             )}
           </div>
+            </TabsContent>
+            <TabsContent value="backup" className="space-y-3 pt-3">
+              <p className="text-xs text-muted-foreground">
+                このサービスから出力した「完全バックアップ(JSON)」ファイルを読み込みます。カード内容に加えて、
+                学習状態(FSRSの復習間隔・熟練度など)も一緒に復元されます。既存のカードには追記される形で登録されます。
+              </p>
+
+              <input
+                ref={backupInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleBackupFile(file)
+                  e.target.value = ''
+                }}
+              />
+
+              <div
+                onDragOver={handleBackupDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleBackupDrop}
+                onClick={() => backupInputRef.current?.click()}
+                className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed py-8 text-center transition-all duration-200 ${
+                  isDragging
+                    ? 'scale-[1.01] border-primary bg-secondary/50'
+                    : 'border-border hover:border-foreground/25 hover:bg-muted/40'
+                }`}
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
+                  <DatabaseBackup className="h-4.5 w-4.5 text-secondary-foreground" strokeWidth={1.75} />
+                </div>
+                {backupFileName ? (
+                  <p className="font-mono text-sm">{backupFileName}</p>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium">クリックまたはドラッグ&ドロップ</p>
+                    <p className="text-xs text-muted-foreground">.json に対応</p>
+                  </>
+                )}
+              </div>
+
+              {backupPreview && (
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                  <span className="font-mono tabular-nums">{backupPreview.cardCount}</span>
+                  <span>枚を読み込みました</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    うち学習状態あり: {backupPreview.reviewCount}枚
+                  </span>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
 
@@ -288,9 +415,19 @@ export function ImportDialog({ deckId }: { deckId: string }) {
         </div>
 
         <DialogFooter>
-          <Button type="button" disabled={rows.length === 0 || isPending} onClick={handleConfirm}>
-            {isPending ? '登録中...' : `${rows.length}枚を登録する`}
-          </Button>
+          {activeTab === 'backup' ? (
+            <Button
+              type="button"
+              disabled={!backupPreview || backupPreview.cardCount === 0 || isPending}
+              onClick={handleConfirmBackupRestore}
+            >
+              {isPending ? '復元中...' : `${backupPreview?.cardCount ?? 0}枚を復元する`}
+            </Button>
+          ) : (
+            <Button type="button" disabled={rows.length === 0 || isPending} onClick={handleConfirm}>
+              {isPending ? '登録中...' : `${rows.length}枚を登録する`}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

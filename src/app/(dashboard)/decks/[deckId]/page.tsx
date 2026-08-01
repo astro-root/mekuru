@@ -66,7 +66,7 @@ export default async function DeckDetailPage({
             </Button>
           </Link>
           <ImportDialog deckId={deckId} />
-          <ExportMenu deckName={deck.name} cards={cards} />
+          <ExportMenu deckId={deckId} deckName={deck.name} cards={cards} />
           <CardFormDialog
             deckId={deckId}
             trigger={
