@@ -4,7 +4,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeaderShell } from '@/components/site-header-shell'
 import Link from 'next/link'
-import { History } from 'lucide-react'
+import { History, Settings } from 'lucide-react'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,6 +17,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Button variant="ghost" size="sm">
                 <History className="mr-1 h-4 w-4" />
                 履歴
+              </Button>
+            </Link>
+            <Link href="/settings">
+              <Button variant="ghost" size="sm">
+                <Settings className="mr-1 h-4 w-4" />
+                設定
               </Button>
             </Link>
             <ThemeToggle />

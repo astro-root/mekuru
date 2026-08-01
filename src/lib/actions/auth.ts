@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 
@@ -52,4 +53,27 @@ export async function signOut() {
   const supabase = await createClient()
   await supabase.auth.signOut()
   redirect('/login')
+}
+
+export async function deleteAccount() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/login')
+  }
+
+  // auth.users を削除すると、decks/tags/cards/card_reviews/review_logs は
+  // on delete cascade によりまとめて削除される。
+  const admin = createAdminClient()
+  const { error } = await admin.auth.admin.deleteUser(user.id)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  await supabase.auth.signOut()
+  redirect('/login?deleted=1')
 }
