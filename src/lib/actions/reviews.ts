@@ -243,15 +243,18 @@ export async function getReviewStats(): Promise<ReviewStats> {
 
   if (error || !data) return { todayCount: 0, streak: 0 }
 
-  // 簡易実装: 日付の区切りをUTC基準で判定しています。ユーザーのタイムゾーンによっては
-  // 日をまたぐタイミングで1日ずれる場合があります(将来的にはクライアントのタイムゾーンを
-  // 受け取って判定する形に拡張できます)。
-  const dateStrings = new Set(data.map((r) => (r.reviewed_at as string).slice(0, 10)))
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const todayCount = data.filter((r) => (r.reviewed_at as string).slice(0, 10) === todayStr).length
+  // 利用者は日本語話者(JST, UTC+9)を前提とするサービスのため、「今日」の判定は
+  // UTCではなくJST基準で行う。UTC基準のままだと日本時間の朝方などにUTCの日付境界を
+  // またぎ、「今日」の集計が実際の体感日とズレて0にリセットされたように見えてしまう。
+  const JST_OFFSET_MS = 9 * 60 * 60 * 1000
+  const toJstDateStr = (iso: string) => new Date(new Date(iso).getTime() + JST_OFFSET_MS).toISOString().slice(0, 10)
+
+  const dateStrings = new Set(data.map((r) => toJstDateStr(r.reviewed_at as string)))
+  const todayStr = toJstDateStr(new Date().toISOString())
+  const todayCount = data.filter((r) => toJstDateStr(r.reviewed_at as string) === todayStr).length
 
   let streak = 0
-  const cursor = new Date()
+  const cursor = new Date(Date.now() + JST_OFFSET_MS)
   cursor.setUTCHours(0, 0, 0, 0)
   if (!dateStrings.has(todayStr)) {
     cursor.setUTCDate(cursor.getUTCDate() - 1)
