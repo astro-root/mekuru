@@ -15,7 +15,15 @@ import {
 import type { ReviewRating } from '@/lib/fsrs/scheduler'
 import type { ReviewStats } from '@/lib/actions/reviews'
 import { ReviewStatsBar } from './review-stats-bar'
-import { WifiOff, PartyPopper, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  WifiOff,
+  PartyPopper,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  ListOrdered,
+  Shuffle,
+} from 'lucide-react'
 
 const RATING_CONFIG: {
   key: ReviewRating
@@ -37,6 +45,21 @@ const RATING_CONFIG: {
   },
 ]
 
+type OrderMode = 'sequential' | 'random'
+
+function shuffle<T>(arr: T[]): T[] {
+  const copy = [...arr]
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+  }
+  return copy
+}
+
+function orderModeStorageKey(deckId: string) {
+  return `mekuru:order-mode:${deckId}`
+}
+
 export function ReviewSession({
   deckId,
   initialStats,
@@ -53,13 +76,24 @@ export function ReviewSession({
   const [isOffline, setIsOffline] = useState(false)
   const [rating, setRating] = useState<ReviewRating | null>(null)
   const [sessionReviewedCount, setSessionReviewedCount] = useState(0)
+  const [orderMode, setOrderMode] = useState<OrderMode>('sequential')
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement>(null)
+  const pointerStart = useRef<{ x: number; y: number } | null>(null)
 
   const loadCards = useCallback(async () => {
     await hydrateDeckCache(deckId)
-    const due = await getCachedDueCards(deckId)
-    setCards(due)
+    const due = await getCachedDueCards(deckId) // 既定でposition昇順(=登録順)
+
+    let storedMode: OrderMode = 'sequential'
+    try {
+      const saved = localStorage.getItem(orderModeStorageKey(deckId))
+      if (saved === 'random' || saved === 'sequential') storedMode = saved
+    } catch {
+      // localStorageが使えない環境ではデフォルト(順番通り)を使う
+    }
+    setOrderMode(storedMode)
+    setCards(storedMode === 'random' ? shuffle(due) : due)
   }, [deckId])
 
   useEffect(() => {
@@ -84,6 +118,28 @@ export function ReviewSession({
   const current = cards?.[index]
   const isReviewingPast = index < liveIndex
   const isDone = cards ? liveIndex >= cards.length && index >= liveIndex : false
+
+  // 出題順(順番通り/ランダム)の切り替え。既に評価済みのカード(0〜liveIndex-1)は
+  // そのままにし、これから出題する分(liveIndex以降)だけ並び替える。
+  const changeOrderMode = useCallback(
+    (mode: OrderMode) => {
+      setOrderMode(mode)
+      try {
+        localStorage.setItem(orderModeStorageKey(deckId), mode)
+      } catch {
+        // 保存に失敗しても致命的ではないので無視する
+      }
+      setCards((prev) => {
+        if (!prev) return prev
+        const reviewed = prev.slice(0, liveIndex)
+        const remaining = prev.slice(liveIndex)
+        const reordered =
+          mode === 'random' ? shuffle(remaining) : [...remaining].sort((a, b) => a.position - b.position)
+        return [...reviewed, ...reordered]
+      })
+    },
+    [deckId, liveIndex]
+  )
 
   // サーバーから取得した「今日の復習数/連続日数」に、このセッション中に完了した分を
   // 即時反映する。今日まだ1件も復習していなかった状態から1件でも評価したら、
@@ -131,6 +187,37 @@ export function ReviewSession({
     setFlipped(false)
   }, [liveIndex])
 
+  // ポインター(マウス/タッチ)操作: 移動量が小さければタップ(めくる)、
+  // 横方向に一定以上動けばスワイプ(評価)とみなす。答えを見た状態でのみ評価スワイプが有効。
+  const SWIPE_THRESHOLD = 48
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    pointerStart.current = { x: e.clientX, y: e.clientY }
+  }, [])
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const start = pointerStart.current
+      pointerStart.current = null
+      if (!start) return
+
+      const dx = e.clientX - start.x
+      const dy = e.clientY - start.y
+      const absDx = Math.abs(dx)
+      const absDy = Math.abs(dy)
+
+      if (absDx > SWIPE_THRESHOLD && absDx > absDy * 1.5) {
+        if (flipped && !isReviewingPast) {
+          handleRate(dx < 0 ? 'again' : 'good')
+        }
+        return
+      }
+
+      handleFlip()
+    },
+    [flipped, isReviewingPast, handleRate, handleFlip]
+  )
+
   // キーボードショートカット: Space/Enter でめくる、左右矢印キーで「わからなかった/わかった」を評価。
   // 過去カードの振り返り(前/次)はチェブロンボタンのクリック操作専用とし、矢印キーとは競合させない。
   useEffect(() => {
@@ -174,7 +261,7 @@ export function ReviewSession({
         <ReviewStatsBar streak={displayedStreak} todayCount={displayedTodayCount} />
         <PartyPopper className="h-8 w-8 text-primary" strokeWidth={1.5} />
         <p className="font-heading text-lg font-bold">今日はここまで</p>
-        <p className="text-sm text-muted-foreground">今復習するカードはありません。</p>
+        <p className="text-sm text-muted-foreground">今学習するカードはありません。</p>
         <Button variant="outline" className="mt-2" onClick={() => router.push(`/decks/${deckId}`)}>
           デッキに戻る
         </Button>
@@ -188,7 +275,7 @@ export function ReviewSession({
         <ReviewStatsBar streak={displayedStreak} todayCount={displayedTodayCount} />
         <PartyPopper className="h-9 w-9 text-primary" strokeWidth={1.5} />
         <p className="font-heading text-xl font-bold">お疲れさまでした！</p>
-        <p className="font-mono text-sm text-muted-foreground">{cards.length} 枚のカードを復習しました</p>
+        <p className="font-mono text-sm text-muted-foreground">{cards.length} 枚のカードを学習しました</p>
         <div className="mt-2 flex gap-2">
           {liveIndex > 0 && (
             <Button variant="outline" onClick={goToPrevious}>
@@ -219,24 +306,55 @@ export function ReviewSession({
       {isOffline && (
         <div className="animate-in fade-in flex items-center justify-center gap-2 rounded-md bg-muted py-2 text-sm text-muted-foreground">
           <WifiOff className="h-4 w-4" />
-          オフラインです。復習結果は接続が戻り次第自動で送信されます。
+          オフラインです。学習結果は接続が戻り次第自動で送信されます。
         </div>
       )}
 
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={goToPrevious}
-          disabled={index <= 0}
-          aria-label="前の問題に戻る"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted disabled:opacity-30"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <Progress value={(liveIndex / cards.length) * 100} className="h-1.5" />
-        <span className="shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
-          {index + 1} / {cards.length}
-        </span>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <button
+            type="button"
+            onClick={goToPrevious}
+            disabled={index <= 0}
+            aria-label="前の問題に戻る"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted disabled:opacity-30"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <Progress value={(liveIndex / cards.length) * 100} className="h-1.5" />
+          <span className="shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
+            {index + 1} / {cards.length}
+          </span>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-border p-0.5">
+          <button
+            type="button"
+            onClick={() => changeOrderMode('sequential')}
+            aria-label="順番通りに出題"
+            title="順番通り"
+            className={`flex h-6 items-center gap-1 rounded px-1.5 text-xs transition-colors ${
+              orderMode === 'sequential'
+                ? 'bg-secondary text-secondary-foreground'
+                : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <ListOrdered className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => changeOrderMode('random')}
+            aria-label="ランダムに出題"
+            title="ランダム"
+            className={`flex h-6 items-center gap-1 rounded px-1.5 text-xs transition-colors ${
+              orderMode === 'random'
+                ? 'bg-secondary text-secondary-foreground'
+                : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <Shuffle className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       {isReviewingPast && (
@@ -254,11 +372,12 @@ export function ReviewSession({
         </div>
       )}
 
-      {/* めくるカード本体: 3D flip (クリックで問題⇄答えを何度でも切り替え可能) */}
+      {/* めくるカード本体: 3D flip。タップでめくる、答えを見た状態での横スワイプで評価 */}
       <div
-        className="relative w-full cursor-pointer select-none"
+        className="relative w-full cursor-pointer select-none touch-pan-y"
         style={{ perspective: '1600px' }}
-        onClick={handleFlip}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
       >
         <div
           ref={cardRef}
@@ -304,10 +423,11 @@ export function ReviewSession({
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">{current!.note}</p>
               </>
             )}
-            <span className="mt-4 flex items-center gap-1 text-xs text-muted-foreground">
-              <RotateCcw className="h-3 w-3" />
-              タップ / Space で問題に戻る
-            </span>
+            {!isReviewingPast && (
+              <span className="mt-4 text-xs text-muted-foreground">
+                左右にスワイプ、または ←/→ キーで評価
+              </span>
+            )}
           </div>
         </div>
       </div>
