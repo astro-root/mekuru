@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DeleteAccountSection } from '@/components/settings/delete-account-section'
+import { BackupSection } from '@/components/settings/backup-section'
 
 export const metadata: Metadata = {
   title: "設定",
@@ -14,6 +15,8 @@ export default function SettingsPage() {
           アカウントに関する設定を管理できます。
         </p>
       </div>
+
+      <BackupSection />
 
       <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
         <h2 className="font-heading text-sm font-bold text-destructive">危険な操作</h2>
