@@ -8,6 +8,9 @@ export function SiteFooter({ maxWidth = 'max-w-5xl' }: { maxWidth?: string }) {
       >
         <span>© {new Date().getFullYear()} めくる</span>
         <nav className="flex items-center gap-4">
+          <Link href="/contact" className="transition-colors hover:text-foreground">
+            お問い合わせ
+          </Link>
           <Link href="/terms" className="transition-colors hover:text-foreground">
             利用規約
           </Link>
