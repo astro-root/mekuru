@@ -62,7 +62,7 @@ export default async function DeckDetailPage({
           <Link href={`/review/${deckId}`}>
             <Button size="sm" variant="outline">
               <BookOpen className="mr-1 h-4 w-4" />
-              復習を始める
+              めくって学習する
             </Button>
           </Link>
           <ImportDialog deckId={deckId} />

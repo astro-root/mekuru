@@ -92,7 +92,7 @@ export function DeckList({ decks }: { decks: Deck[] }) {
             className="pl-8"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {genres.length > 0 && (
             <Select value={genre} onValueChange={setGenre}>
               <SelectTrigger className="w-36 shrink-0">

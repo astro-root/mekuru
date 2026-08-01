@@ -168,8 +168,8 @@ export function ImportDialog({ deckId }: { deckId: string }) {
                   </span>
                 </div>
               )}
-              <div className="max-h-64 overflow-y-auto rounded-lg border border-border">
-                <table className="w-full text-sm">
+              <div className="max-h-64 overflow-y-auto overflow-x-auto rounded-lg border border-border">
+                <table className="w-full min-w-[480px] text-sm">
                   <thead className="sticky top-0 bg-muted">
                     <tr>
                       <th className="p-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">表</th>

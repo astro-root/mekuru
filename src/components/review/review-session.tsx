@@ -25,26 +25,14 @@ const RATING_CONFIG: {
 }[] = [
   {
     key: 'again',
-    label: 'もう一度',
-    shortcut: '1',
+    label: 'わからなかった',
+    shortcut: '←',
     className: 'border-[var(--destructive)] text-[var(--destructive)] hover:bg-[var(--destructive)]/10',
   },
   {
-    key: 'hard',
-    label: '難しい',
-    shortcut: '2',
-    className: 'border-[var(--chart-2)] text-[var(--accent-foreground)] hover:bg-[var(--accent)]/60',
-  },
-  {
     key: 'good',
-    label: '普通',
-    shortcut: '3',
-    className: 'bg-secondary text-secondary-foreground border-transparent hover:bg-secondary/70',
-  },
-  {
-    key: 'easy',
-    label: '簡単',
-    shortcut: '4',
+    label: 'わかった',
+    shortcut: '→',
     className: 'bg-primary text-primary-foreground border-transparent hover:bg-primary/90',
   },
 ]
@@ -143,7 +131,8 @@ export function ReviewSession({
     setFlipped(false)
   }, [liveIndex])
 
-  // キーボードショートカット: Space/Enter でめくる、1-4 で評価、矢印キーで前後のカードへ
+  // キーボードショートカット: Space/Enter でめくる、左右矢印キーで「わからなかった/わかった」を評価。
+  // 過去カードの振り返り(前/次)はチェブロンボタンのクリック操作専用とし、矢印キーとは競合させない。
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (!current) return
@@ -153,27 +142,22 @@ export function ReviewSession({
         handleFlip()
         return
       }
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        goToPrevious()
-        return
-      }
-      if (e.key === 'ArrowRight') {
-        e.preventDefault()
-        if (isReviewingPast) goToNext()
-        return
-      }
       if (flipped && !isReviewingPast) {
-        const match = RATING_CONFIG.find((r) => r.shortcut === e.key)
-        if (match) {
+        if (e.key === 'ArrowLeft') {
           e.preventDefault()
-          handleRate(match.key)
+          handleRate('again')
+          return
+        }
+        if (e.key === 'ArrowRight') {
+          e.preventDefault()
+          handleRate('good')
+          return
         }
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [flipped, current, handleFlip, handleRate, goToPrevious, goToNext, isReviewingPast])
+  }, [flipped, current, handleFlip, handleRate, isReviewingPast])
 
   if (cards === null) {
     return (
@@ -339,19 +323,20 @@ export function ReviewSession({
           <span className="ml-2 font-mono text-xs opacity-60">Space</span>
         </Button>
       ) : (
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 grid grid-cols-4 gap-2">
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 grid grid-cols-2 gap-3">
           {RATING_CONFIG.map((r) => (
             <Button
               key={r.key}
               variant="outline"
+              size="lg"
               disabled={rating !== null}
               onClick={() => handleRate(r.key)}
-              className={`flex-col gap-0.5 border py-2 ${r.className} ${
+              className={`flex-col gap-0.5 border py-3 ${r.className} ${
                 rating === r.key ? 'scale-95' : ''
               } transition-transform`}
             >
               <span>{r.label}</span>
-              <span className="font-mono text-[10px] opacity-60">{r.shortcut}</span>
+              <span className="font-mono text-xs opacity-60">{r.shortcut}</span>
             </Button>
           ))}
         </div>

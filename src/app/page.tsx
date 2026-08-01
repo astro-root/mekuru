@@ -229,7 +229,7 @@ export default function LandingPage() {
         <div className="mt-8 space-y-2">
           {FAQS.map((item, i) => (
             <Reveal key={item.q} delay={i * 60}>
-              <details className="group rounded-xl border border-border bg-card px-4 py-3 open:shadow-sm">
+              <details className="group w-full rounded-xl border border-border bg-card px-4 py-3 open:shadow-sm">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-heading text-sm font-bold">
                   {item.q}
                   <svg

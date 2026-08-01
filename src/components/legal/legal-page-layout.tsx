@@ -14,7 +14,7 @@ export function LegalPageLayout({
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="border-b bg-card">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2 group">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="shrink-0">
               <rect x="3" y="4" width="14" height="18" rx="2" className="fill-secondary" />
@@ -44,7 +44,7 @@ export function LegalPageLayout({
         </div>
       </main>
 
-      <SiteFooter />
+      <SiteFooter maxWidth="max-w-3xl" />
     </div>
   )
 }
