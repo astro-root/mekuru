@@ -81,13 +81,8 @@ export default function PrivacyPage() {
 
       <LegalSection heading="第9条(お問い合わせ窓口)">
         <p>本ポリシーに関するお問い合わせは、以下の窓口までご連絡ください。</p>
-        <p className="font-mono text-xs">お問い合わせ先: support@example.com(実際の運用時にご自身の連絡先へ差し替えてください)</p>
+        <p className="font-mono text-xs">運営者: るーと<br />お問い合わせ先: contact@astro-root.com</p>
       </LegalSection>
-
-      <p className="rounded-lg border border-dashed border-border bg-muted/40 p-4 text-xs text-muted-foreground">
-        本ページは一般的なひな形として作成したサンプルであり、法的助言ではありません。実際のサービス運用にあたっては、
-        取り扱うデータの内容や事業形態に応じて、弁護士等の専門家にご確認のうえ内容を調整してください。
-      </p>
-    </LegalPageLayout>
+      </LegalPageLayout>
   )
 }
