@@ -12,6 +12,7 @@ export type CardWithState = {
   card_type: string
   cloze_text: string | null
   note: string | null
+  position: number
   fsrsCard: Card
 }
 
@@ -63,6 +64,7 @@ export async function getDeckCardsWithState(deckId: string): Promise<CardWithSta
     .from('cards')
     .select('*')
     .eq('deck_id', deckId)
+    .order('position', { ascending: true })
   if (cardsError) throw new Error(cardsError.message)
   if (!cards) return []
 
@@ -87,6 +89,7 @@ export async function getDeckCardsWithState(deckId: string): Promise<CardWithSta
       card_type: card.card_type,
       cloze_text: card.cloze_text,
       note: card.note,
+      position: card.position,
       fsrsCard: reviewRow ? rowToFsrsCard(reviewRow) : createEmptyCard(),
     }
   })

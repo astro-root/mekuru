@@ -42,6 +42,7 @@ export async function hydrateDeckCache(deckId: string): Promise<void> {
     cardType: c.card_type,
     clozeText: c.cloze_text,
     note: c.note,
+    position: c.position,
     fsrsState: stringifyFsrsCard(c.fsrsCard),
     updatedAt: now,
   }))
@@ -59,6 +60,7 @@ export type OfflineDueCard = {
   cardType: string
   clozeText: string | null
   note: string | null
+  position: number
 }
 
 export async function getCachedDueCards(deckId: string): Promise<OfflineDueCard[]> {
@@ -67,6 +69,7 @@ export async function getCachedDueCards(deckId: string): Promise<OfflineDueCard[
 
   return cards
     .filter((c) => isDue(parseFsrsState(c.fsrsState), now))
+    .sort((a, b) => a.position - b.position) // 既定は登録順(position昇順)
     .map((c) => ({
       id: c.id,
       front: c.front,
@@ -74,6 +77,7 @@ export async function getCachedDueCards(deckId: string): Promise<OfflineDueCard[
       cardType: c.cardType,
       clozeText: c.clozeText,
       note: c.note,
+      position: c.position,
     }))
 }
 

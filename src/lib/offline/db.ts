@@ -8,6 +8,7 @@ export interface OfflineCard {
   cardType: string
   clozeText: string | null
   note: string | null
+  position: number
   fsrsState: string // JSON化されたFSRS Card(due, stability, difficulty, etc.)
   updatedAt: string
 }

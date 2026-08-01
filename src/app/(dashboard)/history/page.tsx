@@ -15,9 +15,7 @@ export default async function HistoryPage() {
 
   const breakdown: { key: ReviewRating; count: number }[] = [
     { key: 'again', count: summary.againCount },
-    { key: 'hard', count: summary.hardCount },
     { key: 'good', count: summary.goodCount },
-    { key: 'easy', count: summary.easyCount },
   ]
 
   return (

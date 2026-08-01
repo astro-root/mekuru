@@ -3,15 +3,13 @@ import { fsrs, generatorParameters, Rating, State, createEmptyCard, type Card, t
 const params = generatorParameters({ enable_fuzz: true, maximum_interval: 36500 })
 const scheduler = fsrs(params)
 
-export type ReviewRating = 'again' | 'hard' | 'good' | 'easy'
+export type ReviewRating = 'again' | 'good'
 
 type GradeRating = Exclude<Rating, Rating.Manual>
 
 const ratingMap: Record<ReviewRating, GradeRating> = {
   again: Rating.Again,
-  hard: Rating.Hard,
   good: Rating.Good,
-  easy: Rating.Easy,
 }
 
 export function createNewFsrsCard(): Card {

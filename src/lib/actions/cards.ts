@@ -18,10 +18,24 @@ export async function getCards(deckId: string) {
     .from('cards')
     .select('*')
     .eq('deck_id', deckId)
-    .order('created_at', { ascending: false })
+    .order('position', { ascending: true })
 
   if (error) throw new Error(error.message)
   return data
+}
+
+async function getNextPosition(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  deckId: string
+): Promise<number> {
+  const { data } = await supabase
+    .from('cards')
+    .select('position')
+    .eq('deck_id', deckId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return (data?.position ?? 0) + 1
 }
 
 export async function createCard(deckId: string, formData: FormData) {
@@ -37,8 +51,11 @@ export async function createCard(deckId: string, formData: FormData) {
     return { error: parsed.error.issues[0].message }
   }
 
+  const position = await getNextPosition(supabase, deckId)
+
   const { error } = await supabase.from('cards').insert({
     deck_id: deckId,
+    position,
     ...parsed.data,
   })
   if (error) return { error: error.message }
@@ -54,12 +71,17 @@ export async function createCardsBulk(
   const supabase = await createClient()
   if (rows.length === 0) return { error: '登録するカードがありません' }
 
-  const payload = rows.map((r) => ({
+  const startPosition = await getNextPosition(supabase, deckId)
+
+  // rowsの並び(=CSV/Excelの読み込み順)をそのままpositionに反映し、
+  // インポート順と表示順が一致するようにする
+  const payload = rows.map((r, i) => ({
     deck_id: deckId,
     front: r.front,
     back: r.back,
     note: r.note || null,
     card_type: 'basic' as const,
+    position: startPosition + i,
   }))
 
   const { error, count } = await supabase.from('cards').insert(payload, { count: 'exact' })
