@@ -47,6 +47,9 @@ const RATING_CONFIG: {
 
 type OrderMode = 'sequential' | 'random'
 
+const SWIPE_COMMIT_THRESHOLD = 90 // これ以上動かすとその場で評価が確定する
+const SWIPE_DIRECTION_RATIO = 1.5 // 横移動が縦移動よりこの倍率以上大きければ「横スワイプ」とみなす
+
 function shuffle<T>(arr: T[]): T[] {
   const copy = [...arr]
   for (let i = copy.length - 1; i > 0; i--) {
@@ -77,6 +80,8 @@ export function ReviewSession({
   const [rating, setRating] = useState<ReviewRating | null>(null)
   const [sessionReviewedCount, setSessionReviewedCount] = useState(0)
   const [orderMode, setOrderMode] = useState<OrderMode>('sequential')
+  const [dragX, setDragX] = useState(0) // スワイプ中のカードの横方向オフセット(px)
+  const [isDragging, setIsDragging] = useState(false)
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement>(null)
   const pointerStart = useRef<{ x: number; y: number } | null>(null)
@@ -159,6 +164,7 @@ export function ReviewSession({
         setLiveIndex((i) => i + 1)
         setFlipped(false)
         setRating(null)
+        setDragX(0)
       }, 160)
     },
     [current, deckId, rating, isReviewingPast]
@@ -187,18 +193,34 @@ export function ReviewSession({
     setFlipped(false)
   }, [liveIndex])
 
-  // ポインター(マウス/タッチ)操作: 移動量が小さければタップ(めくる)、
-  // 横方向に一定以上動けばスワイプ(評価)とみなす。答えを見た状態でのみ評価スワイプが有効。
-  const SWIPE_THRESHOLD = 48
+  // ポインター(マウス/タッチ)操作。答えを見た状態でのみ、カードが指に追従して
+  // 傾き・色付けされ、どちら向きにスワイプしているか一目で分かるようにする。
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      pointerStart.current = { x: e.clientX, y: e.clientY }
+      if (flipped && !isReviewingPast) setIsDragging(true)
+    },
+    [flipped, isReviewingPast]
+  )
 
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    pointerStart.current = { x: e.clientX, y: e.clientY }
-  }, [])
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      const start = pointerStart.current
+      if (!start || !flipped || isReviewingPast) return
+      const dx = e.clientX - start.x
+      const dy = e.clientY - start.y
+      if (Math.abs(dx) > Math.abs(dy) * SWIPE_DIRECTION_RATIO) {
+        setDragX(dx)
+      }
+    },
+    [flipped, isReviewingPast]
+  )
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
       const start = pointerStart.current
       pointerStart.current = null
+      setIsDragging(false)
       if (!start) return
 
       const dx = e.clientX - start.x
@@ -206,14 +228,17 @@ export function ReviewSession({
       const absDx = Math.abs(dx)
       const absDy = Math.abs(dy)
 
-      if (absDx > SWIPE_THRESHOLD && absDx > absDy * 1.5) {
+      if (absDx > SWIPE_COMMIT_THRESHOLD && absDx > absDy * SWIPE_DIRECTION_RATIO) {
         if (flipped && !isReviewingPast) {
           handleRate(dx < 0 ? 'again' : 'good')
+          return
         }
-        return
       }
 
-      handleFlip()
+      setDragX(0)
+      if (absDx <= 8 && absDy <= 8) {
+        handleFlip()
+      }
     },
     [flipped, isReviewingPast, handleRate, handleFlip]
   )
@@ -299,6 +324,12 @@ export function ReviewSession({
       ? renderClozeAnswer(current!.clozeText)
       : current!.back
 
+  // ドラッグ量に応じた視覚フィードバック
+  const dragProgress = Math.min(Math.abs(dragX) / SWIPE_COMMIT_THRESHOLD, 1)
+  const dragRotation = Math.max(-12, Math.min(12, dragX / 12))
+  const showAgainOverlay = dragX < -12
+  const showGoodOverlay = dragX > 12
+
   return (
     <div className="mx-auto max-w-xl space-y-5">
       <ReviewStatsBar streak={displayedStreak} todayCount={displayedTodayCount} />
@@ -372,21 +403,28 @@ export function ReviewSession({
         </div>
       )}
 
-      {/* めくるカード本体: 3D flip。タップでめくる、答えを見た状態での横スワイプで評価 */}
+      {/* めくるカード本体: 3D flip。タップでめくる、答えを見た状態での横スワイプで評価。
+          ドラッグ中はカードが指に追従して傾き、方向に応じた色のオーバーレイが出る。 */}
       <div
         className="relative w-full cursor-pointer select-none touch-pan-y"
         style={{ perspective: '1600px' }}
         onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={() => {
+          pointerStart.current = null
+          setIsDragging(false)
+          setDragX(0)
+        }}
       >
         <div
           ref={cardRef}
           key={current!.id}
-          className="animate-in fade-in zoom-in-[0.98] relative min-h-[300px] w-full duration-300 transition-transform ease-[cubic-bezier(0.4,0.2,0.2,1)]"
+          className="animate-in fade-in zoom-in-[0.98] relative min-h-[300px] w-full duration-300"
           style={{
             transformStyle: 'preserve-3d',
-            transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-            transitionDuration: '500ms',
+            transform: `translateX(${dragX}px) rotate(${dragRotation}deg) rotateY(${flipped ? 180 : 0}deg)`,
+            transition: isDragging ? 'none' : 'transform 500ms cubic-bezier(0.4,0.2,0.2,1)',
           }}
         >
           {/* 表面: 問題 */}
@@ -407,12 +445,26 @@ export function ReviewSession({
 
           {/* 裏面: 答え */}
           <div
-            className="absolute inset-0 flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-primary/30 bg-card p-8 text-center shadow-md"
+            className="absolute inset-0 flex min-h-[300px] flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-primary/30 bg-card p-8 text-center shadow-md"
             style={{
               backfaceVisibility: 'hidden',
               transform: 'rotateY(180deg)',
             }}
           >
+            {/* スワイプ方向のフィードバック(左=わからなかった、右=わかった) */}
+            <div
+              className="pointer-events-none absolute inset-0 flex items-center justify-start bg-[var(--destructive)] px-6 text-lg font-bold text-white transition-opacity"
+              style={{ opacity: showAgainOverlay ? dragProgress * 0.9 : 0 }}
+            >
+              わからなかった
+            </div>
+            <div
+              className="pointer-events-none absolute inset-0 flex items-center justify-end bg-primary px-6 text-lg font-bold text-primary-foreground transition-opacity"
+              style={{ opacity: showGoodOverlay ? dragProgress * 0.9 : 0 }}
+            >
+              わかった
+            </div>
+
             <span className="font-mono text-xs tracking-wide text-primary">A</span>
             <p className="font-heading text-xl font-medium leading-relaxed whitespace-pre-wrap">
               {answerText}
