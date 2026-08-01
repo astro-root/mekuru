@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Link as LinkIcon } from 'lucide-react'
 import {
   parseCsv,
   parseExcel,
@@ -22,6 +22,8 @@ import {
 } from '@/lib/import-export/parse'
 import { createCardsBulk } from '@/lib/actions/cards'
 import { toast } from 'sonner'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Input } from '@/components/ui/input'
 
 export function ImportDialog({ deckId }: { deckId: string }) {
   const [open, setOpen] = useState(false)
@@ -31,6 +33,8 @@ export function ImportDialog({ deckId }: { deckId: string }) {
   const [fileName, setFileName] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [gsheetUrl, setGsheetUrl] = useState('')
+  const [isFetchingGsheet, setIsFetchingGsheet] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -90,6 +94,41 @@ export function ImportDialog({ deckId }: { deckId: string }) {
     router.refresh()
   }
 
+  async function handleGsheetImport() {
+    const url = gsheetUrl.trim()
+    if (!url) return
+
+    setIsFetchingGsheet(true)
+    try {
+      const res = await fetch('/api/import/gsheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? 'スプレッドシートの読み込みに失敗しました')
+        return
+      }
+
+      setFileName('Googleスプレッドシート')
+      const result = parseCsv(data.csv as string)
+      setRows(result.rows)
+      setSkipped(result.skipped)
+      setHadHeader(result.hadHeader)
+
+      if (result.rows.length === 0) {
+        toast.error('front・backの両方が入った行が見つかりませんでした。内容をご確認ください。')
+      } else if (result.rows.length >= MAX_IMPORT_ROWS) {
+        toast.warning(`1回のインポートは最大${MAX_IMPORT_ROWS}行までです。超えた分は読み込まれていません。`)
+      }
+    } catch {
+      toast.error('スプレッドシートの読み込みに失敗しました')
+    } finally {
+      setIsFetchingGsheet(false)
+    }
+  }
+
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault()
     setIsDragging(true)
@@ -137,6 +176,34 @@ export function ImportDialog({ deckId }: { deckId: string }) {
             1列目=表・2列目=裏・3列目=コメントとしてそのまま読み込みます。
           </p>
 
+          <Tabs defaultValue="file">
+            <TabsList>
+              <TabsTrigger value="file">ファイルから</TabsTrigger>
+              <TabsTrigger value="gsheet">Googleスプレッドシートのリンクから</TabsTrigger>
+            </TabsList>
+            <TabsContent value="gsheet" className="space-y-2 pt-3">
+              <p className="text-xs text-muted-foreground">
+                共有設定を「リンクを知っている全員が閲覧可」にしたうえで、URLを貼り付けてください。
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  value={gsheetUrl}
+                  onChange={(e) => setGsheetUrl(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!gsheetUrl.trim() || isFetchingGsheet}
+                  onClick={handleGsheetImport}
+                >
+                  <LinkIcon className="mr-1 h-4 w-4" />
+                  {isFetchingGsheet ? '読み込み中...' : '読み込む'}
+                </Button>
+              </div>
+            </TabsContent>
+            <TabsContent value="file" className="pt-3">
+
           <input
             ref={fileInputRef}
             type="file"
@@ -172,6 +239,8 @@ export function ImportDialog({ deckId }: { deckId: string }) {
               </>
             )}
           </div>
+            </TabsContent>
+          </Tabs>
 
           {rows.length > 0 && (
             <div className="animate-in fade-in slide-in-from-top-1 duration-300 space-y-2">
