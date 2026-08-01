@@ -4,6 +4,7 @@ import { HeroFlipDemo } from '@/components/marketing/hero-flip-demo'
 import { Reveal } from '@/components/marketing/reveal'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { SiteFooter } from '@/components/site-footer'
+import { SiteHeaderShell } from '@/components/site-header-shell'
 import {
   BrainCircuit,
   WifiOff,
@@ -91,24 +92,16 @@ const FAQS = [
 export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="border-b bg-card">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="shrink-0">
-              <rect x="3" y="4" width="14" height="18" rx="2" className="fill-secondary" />
-              <path d="M17 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2" className="stroke-primary" strokeWidth="1.6" />
-              <path d="M17 4 L23 8 L17 10 Z" className="fill-accent stroke-accent-foreground" strokeWidth="0.6" />
-            </svg>
-            <span className="font-heading text-lg font-bold tracking-wide">めくる</span>
-          </div>
-          <div className="flex items-center gap-1">
+      <SiteHeaderShell
+        right={
+          <>
             <ThemeToggle />
             <Link href="/login">
               <Button variant="ghost" size="sm">ログイン</Button>
             </Link>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <section
         className="relative overflow-hidden border-b"
