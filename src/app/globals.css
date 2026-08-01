@@ -4,6 +4,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ページごとの縦の長さでスクロールバーの有無が変わり、中央寄せのmax-wコンテナの
+   実効幅がページ間でわずかにズレる問題を防ぐため、スクロールバー分の余白を常に確保する */
+html {
+  scrollbar-gutter: stable;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
