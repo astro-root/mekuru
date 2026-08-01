@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { signInWithEmail, signUpWithEmail, signInWithGoogle } from '@/lib/actions/auth'
 import { Button } from '@/components/ui/button'
@@ -101,7 +102,15 @@ export default function LoginPage() {
                   <Input id="email" name="email" type="email" required />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="password">パスワード</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">パスワード</Label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                    >
+                      パスワードをお忘れですか?
+                    </Link>
+                  </div>
                   <Input id="password" name="password" type="password" required />
                 </div>
                 <Button type="submit" className="w-full" disabled={isPending}>

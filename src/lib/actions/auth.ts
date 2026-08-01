@@ -37,6 +37,41 @@ export async function signUpWithEmail(formData: FormData) {
   return { success: 'confirmation_sent' }
 }
 
+export async function requestPasswordReset(formData: FormData) {
+  const email = formData.get('email') as string
+  const supabase = await createClient()
+  const origin = (await headers()).get('origin')
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/reset-password`,
+  })
+
+  // メール存在の有無を応答から推測できないよう、成功時と同じ文言を返す
+  if (error) {
+    return { error: error.message }
+  }
+  return { success: true }
+}
+
+export async function updatePassword(formData: FormData) {
+  const password = formData.get('password') as string
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: 'セッションが切れています。もう一度パスワード再設定のリンクを開いてください。' }
+  }
+
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) {
+    return { error: error.message }
+  }
+  return { success: true }
+}
+
 export async function signInWithGoogle() {
   const supabase = await createClient()
   const origin = (await headers()).get('origin')

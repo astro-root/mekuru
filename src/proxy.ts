@@ -27,8 +27,13 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login')
+  const isAuthRoute =
+    request.nextUrl.pathname.startsWith('/login') ||
+    request.nextUrl.pathname.startsWith('/forgot-password')
   const isDashboardRoute = request.nextUrl.pathname.startsWith('/decks')
+  // パスワード再設定リンクからの遷移時はSupabaseのrecoveryセッションにより
+  // user が入るため、isAuthRoute のログイン中リダイレクト対象からは除外する。
+  const isResetPasswordRoute = request.nextUrl.pathname.startsWith('/reset-password')
 
   if (!user && isDashboardRoute) {
     const url = request.nextUrl.clone()
@@ -36,7 +41,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (user && isAuthRoute) {
+  if (user && isAuthRoute && !isResetPasswordRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/decks'
     return NextResponse.redirect(url)
