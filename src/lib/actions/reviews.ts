@@ -162,7 +162,8 @@ export async function submitReview(
   deckId: string,
   cardId: string,
   rating: ReviewRating,
-  reviewedAt?: string
+  reviewedAt?: string,
+  clientReviewId?: string
 ) {
   const supabase = await createClient()
   const {
@@ -204,13 +205,19 @@ export async function submitReview(
 
   // 復習ログに1件追記(ストリーク/統計表示用)。reviewedAtはオフライン時にキューへ積んだ
   // 実際の復習時刻。指定がなければサーバー受信時刻を使う。
-  const { error: logError } = await supabase.from('review_logs').insert({
-    user_id: user.id,
-    card_id: cardId,
-    deck_id: deckId,
-    rating,
-    reviewed_at: reviewedAt ?? new Date().toISOString(),
-  })
+  // clientReviewIdはオフラインキュー側で発行した一意IDで、同期リトライ時に同じ復習が
+  // 二重に記録されるのを防ぐ(client_idにunique制約があるため、重複はDB側で無視される)。
+  const { error: logError } = await supabase.from('review_logs').upsert(
+    {
+      user_id: user.id,
+      card_id: cardId,
+      deck_id: deckId,
+      rating,
+      reviewed_at: reviewedAt ?? new Date().toISOString(),
+      client_id: clientReviewId ?? crypto.randomUUID(),
+    },
+    { onConflict: 'client_id', ignoreDuplicates: true }
+  )
   if (logError) {
     // ログ記録の失敗で復習自体を失敗扱いにはしない(統計が多少ずれるだけなので握りつぶす)
     console.error('review_logs insert failed:', logError.message)
