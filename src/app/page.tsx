@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { HeroFlipDemo } from '@/components/marketing/hero-flip-demo'
 import { Reveal } from '@/components/marketing/reveal'
+import { FaqItem } from '@/components/marketing/faq-item'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeaderShell } from '@/components/site-header-shell'
@@ -222,20 +223,7 @@ export default function LandingPage() {
         <div className="mt-8 space-y-2">
           {FAQS.map((item, i) => (
             <Reveal key={item.q} delay={i * 60}>
-              <details className="group w-full rounded-xl border border-border bg-card px-4 py-3 open:shadow-sm">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-heading text-sm font-bold">
-                  {item.q}
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 24 24"
-                    className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
-                    fill="none"
-                  >
-                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </summary>
-                <p className="mt-2 text-sm text-muted-foreground">{item.a}</p>
-              </details>
+              <FaqItem question={item.q} answer={item.a} />
             </Reveal>
           ))}
         </div>
