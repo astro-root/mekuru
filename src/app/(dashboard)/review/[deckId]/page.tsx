@@ -14,9 +14,9 @@ export async function generateMetadata({
   const { deckId } = await params
   try {
     const deck = await getDeck(deckId)
-    return { title: `復習 - ${deck?.name ?? ""}` }
+    return { title: `${deck?.name ?? ""} の学習` }
   } catch {
-    return { title: "復習" }
+    return { title: "学習" }
   }
 }
 
@@ -46,7 +46,7 @@ export default async function ReviewPage({
         <ArrowLeft className="mr-1 h-4 w-4" />
         {deck.name} に戻る
       </Link>
-      <h1 className="font-heading text-xl font-bold">{deck.name} — 復習</h1>
+      <h1 className="font-heading text-xl font-bold">{deck.name} — 学習</h1>
       <ReviewSession deckId={deckId} initialStats={stats} />
     </div>
   )
