@@ -70,6 +70,7 @@ export async function createCardsBulk(
 ) {
   const supabase = await createClient()
   if (rows.length === 0) return { error: '登録するカードがありません' }
+  if (rows.length > 3000) return { error: '1回のインポートは最大3000枚までです' }
 
   const startPosition = await getNextPosition(supabase, deckId)
 

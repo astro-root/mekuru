@@ -7,6 +7,9 @@ export type ParsedRow = {
   note?: string
 }
 
+export const MAX_IMPORT_FILE_SIZE_BYTES = 5 * 1024 * 1024 // 5MB
+export const MAX_IMPORT_ROWS = 3000
+
 export type ParseResult = {
   rows: ParsedRow[]
   skipped: number
@@ -75,7 +78,10 @@ function buildRow(mapped: Partial<ParsedRow>): ParsedRow | null {
  * - 無ければ、1行目からすべてデータ行とみなし、1列目=表, 2列目=裏, 3列目=コメント として読み込む
  */
 function rowsFromMatrix(matrix: unknown[][]): ParseResult {
-  const nonEmptyRows = matrix.filter((row) => !isRowEmpty(row))
+  // 巨大ファイル対策: 見出し行を含めても上限行数を超える場合は、それ以降を切り捨てる
+  const cappedMatrix =
+    matrix.length > MAX_IMPORT_ROWS + 1 ? matrix.slice(0, MAX_IMPORT_ROWS + 1) : matrix
+  const nonEmptyRows = cappedMatrix.filter((row) => !isRowEmpty(row))
   if (nonEmptyRows.length === 0) return { rows: [], skipped: 0, hadHeader: false }
 
   const firstRow = nonEmptyRows[0]
@@ -130,9 +136,25 @@ export function parseExcel(arrayBuffer: ArrayBuffer): ParseResult {
   return rowsFromMatrix(matrix)
 }
 
+/**
+ * Excel/Google SheetsでCSVを開いた際に、セルの先頭が =,+,-,@ だと数式として
+ * 解釈・実行されてしまう(CSVインジェクション)。先頭にシングルクォートを付けて
+ * 常に文字列として扱われるようにする。
+ */
+function escapeForSpreadsheetFormula(value: string): string {
+  if (/^[=+\-@\t\r]/.test(value)) {
+    return `'${value}`
+  }
+  return value
+}
+
 export function exportToCsv(deckName: string, cards: ParsedRow[]) {
   const csv = Papa.unparse(
-    cards.map((c) => ({ front: c.front, back: c.back, note: c.note ?? '' }))
+    cards.map((c) => ({
+      front: escapeForSpreadsheetFormula(c.front),
+      back: escapeForSpreadsheetFormula(c.back),
+      note: escapeForSpreadsheetFormula(c.note ?? ''),
+    }))
   )
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
   downloadBlob(blob, `${deckName}.csv`)
@@ -140,8 +162,20 @@ export function exportToCsv(deckName: string, cards: ParsedRow[]) {
 
 export function exportToExcel(deckName: string, cards: ParsedRow[]) {
   const worksheet = XLSX.utils.json_to_sheet(
-    cards.map((c) => ({ front: c.front, back: c.back, note: c.note ?? '' }))
+    cards.map((c) => ({
+      front: escapeForSpreadsheetFormula(c.front),
+      back: escapeForSpreadsheetFormula(c.back),
+      note: escapeForSpreadsheetFormula(c.note ?? ''),
+    }))
   )
+  // 全セルを明示的に文字列型(t: 's')へ固定し、数式として解釈されるのを防ぐ
+  Object.keys(worksheet).forEach((cellRef) => {
+    if (cellRef.startsWith('!')) return
+    const cell = worksheet[cellRef]
+    if (cell && typeof cell.v === 'string') {
+      cell.t = 's'
+    }
+  })
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, 'cards')
   const arrayBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })

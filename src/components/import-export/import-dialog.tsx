@@ -12,7 +12,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { parseCsv, parseExcel, type ParsedRow, type ParseResult } from '@/lib/import-export/parse'
+import {
+  parseCsv,
+  parseExcel,
+  MAX_IMPORT_FILE_SIZE_BYTES,
+  MAX_IMPORT_ROWS,
+  type ParsedRow,
+  type ParseResult,
+} from '@/lib/import-export/parse'
 import { createCardsBulk } from '@/lib/actions/cards'
 import { toast } from 'sonner'
 
@@ -28,8 +35,22 @@ export function ImportDialog({ deckId }: { deckId: string }) {
   const router = useRouter()
 
   async function handleFile(file: File) {
-    setFileName(file.name)
     const lowerName = file.name.toLowerCase()
+
+    // マクロ付き(.xlsm)や想定外の拡張子は、ファイル選択ダイアログのaccept属性では
+    // ドラッグ&ドロップ時に弾けないため、ここで明示的に検証する
+    const allowedExtensions = ['.csv', '.xlsx', '.xls']
+    if (!allowedExtensions.some((ext) => lowerName.endsWith(ext))) {
+      toast.error('.csv / .xlsx / .xls 形式のファイルのみ読み込めます(.xlsmなどマクロ付きファイルは非対応です)')
+      return
+    }
+
+    if (file.size > MAX_IMPORT_FILE_SIZE_BYTES) {
+      toast.error(`ファイルサイズが大きすぎます(上限 ${MAX_IMPORT_FILE_SIZE_BYTES / 1024 / 1024}MB)`)
+      return
+    }
+
+    setFileName(file.name)
     try {
       let result: ParseResult
       if (lowerName.endsWith('.csv')) {
@@ -45,6 +66,8 @@ export function ImportDialog({ deckId }: { deckId: string }) {
 
       if (result.rows.length === 0) {
         toast.error('front・backの両方が入った行が見つかりませんでした。内容をご確認ください。')
+      } else if (result.rows.length >= MAX_IMPORT_ROWS) {
+        toast.warning(`1回のインポートは最大${MAX_IMPORT_ROWS}行までです。超えた分は読み込まれていません。`)
       }
     } catch {
       toast.error('ファイルの読み込みに失敗しました。ファイル形式(.csv / .xlsx / .xls)をご確認ください。')
