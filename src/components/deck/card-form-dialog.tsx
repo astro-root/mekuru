@@ -128,6 +128,12 @@ export function CardFormDialog({
               placeholder="例: 歴史, 江戸時代"
             />
           </div>
+          {!isEdit && cardType === 'basic' && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="also_create_reversed" className="h-4 w-4 rounded border-border" />
+              裏→表(逆方向)のカードも同時に作る
+            </label>
+          )}
           {cardType === 'cloze' && (
             <div className="space-y-1.5">
               <Label htmlFor="cloze_text">穴埋め文</Label>

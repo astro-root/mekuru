@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { CardFormDialog } from './card-form-dialog'
-import { deleteCard } from '@/lib/actions/cards'
+import { deleteCard, createReversedCard } from '@/lib/actions/cards'
 import { toast } from 'sonner'
 
 type CardItem = {
@@ -36,6 +36,16 @@ export function CardRow({ deckId, card }: { deckId: string; card: CardItem }) {
       return
     }
     toast.success('カードを削除しました')
+    router.refresh()
+  }
+
+  async function handleCreateReversed() {
+    const result = await createReversedCard(deckId, card.id)
+    if (result?.error) {
+      toast.error(result.error)
+      return
+    }
+    toast.success('逆方向のカードを追加しました')
     router.refresh()
   }
 
@@ -80,6 +90,11 @@ export function CardRow({ deckId, card }: { deckId: string; card: CardItem }) {
               <DropdownMenuItem onSelect={(e) => e.preventDefault()}>編集</DropdownMenuItem>
             }
           />
+          {!isCloze && (
+            <DropdownMenuItem onSelect={handleCreateReversed}>
+              逆方向のカードを追加
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={handleDelete} className="text-destructive">
             削除
           </DropdownMenuItem>

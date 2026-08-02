@@ -62,22 +62,31 @@ export async function createCard(deckId: string, formData: FormData) {
     return { error: parsed.error.issues[0].message }
   }
 
+  const alsoCreateReversed = formData.get('also_create_reversed') === 'on' && parsed.data.card_type === 'basic'
+
   const { tags, ...cardFields } = parsed.data
   const position = await getNextPosition(supabase, deckId)
 
-  const { data: card, error } = await supabase
-    .from('cards')
-    .insert({
-      deck_id: deckId,
-      position,
-      ...cardFields,
-    })
-    .select('id')
-    .single()
+  const insertRows = alsoCreateReversed
+    ? [
+        { deck_id: deckId, position, ...cardFields },
+        {
+          deck_id: deckId,
+          position: position + 1,
+          ...cardFields,
+          front: cardFields.back,
+          back: cardFields.front,
+        },
+      ]
+    : [{ deck_id: deckId, position, ...cardFields }]
+
+  const { data: insertedCards, error } = await supabase.from('cards').insert(insertRows).select('id')
   if (error) return { error: error.message }
 
   try {
-    await syncCardTags(card.id, user.id, tags)
+    for (const c of insertedCards ?? []) {
+      await syncCardTags(c.id, user.id, tags)
+    }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'タグの保存に失敗しました' }
   }
@@ -144,6 +153,52 @@ export async function updateCard(deckId: string, cardId: string, formData: FormD
 
   try {
     await syncCardTags(cardId, user.id, tags)
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'タグの保存に失敗しました' }
+  }
+
+  revalidatePath(`/decks/${deckId}`)
+  return { success: true }
+}
+
+export async function createReversedCard(deckId: string, cardId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: '認証されていません' }
+
+  const { data: source, error: fetchError } = await supabase
+    .from('cards')
+    .select('front, back, card_type, note')
+    .eq('id', cardId)
+    .maybeSingle()
+  if (fetchError) return { error: fetchError.message }
+  if (!source) return { error: 'カードが見つかりません' }
+  if (source.card_type !== 'basic') {
+    return { error: '逆方向のカードは「表→裏」形式のみ作成できます' }
+  }
+
+  const tagsByCardId = await getCardTagsByCardIds([cardId])
+  const tagNames = (tagsByCardId[cardId] ?? []).map((t) => t.name)
+
+  const position = await getNextPosition(supabase, deckId)
+  const { data: created, error } = await supabase
+    .from('cards')
+    .insert({
+      deck_id: deckId,
+      position,
+      front: source.back,
+      back: source.front,
+      card_type: 'basic',
+      note: source.note,
+    })
+    .select('id')
+    .single()
+  if (error) return { error: error.message }
+
+  try {
+    await syncCardTags(created.id, user.id, tagNames.join(','))
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'タグの保存に失敗しました' }
   }
