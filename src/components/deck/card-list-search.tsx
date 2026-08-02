@@ -15,19 +15,33 @@ type CardItem = {
   card_type: string
   cloze_text: string | null
   note: string | null
+  tags?: { id: string; name: string }[]
 }
 
 export function CardListSearch({ deckId, cards }: { deckId: string; cards: CardItem[] }) {
   const [query, setQuery] = useState('')
+  const [activeTag, setActiveTag] = useState<string | null>(null)
+
+  const allTagNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const c of cards) {
+      for (const t of c.tags ?? []) names.add(t.name)
+    }
+    return Array.from(names).sort()
+  }, [cards])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return cards
     return cards.filter((c) => {
-      const haystack = [c.front, c.back, c.cloze_text ?? '', c.note ?? ''].join('\n').toLowerCase()
+      if (activeTag && !(c.tags ?? []).some((t) => t.name === activeTag)) return false
+      if (!q) return true
+      const tagNames = (c.tags ?? []).map((t) => t.name).join('\n')
+      const haystack = [c.front, c.back, c.cloze_text ?? '', c.note ?? '', tagNames]
+        .join('\n')
+        .toLowerCase()
       return haystack.includes(q)
     })
-  }, [cards, query])
+  }, [cards, query, activeTag])
 
   return (
     <div className="space-y-3">
@@ -36,7 +50,7 @@ export function CardListSearch({ deckId, cards }: { deckId: string; cards: CardI
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="表・裏・コメントを検索"
+          placeholder="表・裏・コメント・タグを検索"
           className="pl-8 pr-8"
         />
         {query && (
@@ -51,7 +65,29 @@ export function CardListSearch({ deckId, cards }: { deckId: string; cards: CardI
         )}
       </div>
 
-      {query && (
+      {allTagNames.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {allTagNames.map((name) => {
+            const active = activeTag === name
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setActiveTag(active ? null : name)}
+                className={`rounded-full px-2.5 py-1 font-mono text-xs transition-colors ${
+                  active
+                    ? 'bg-secondary text-secondary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                }`}
+              >
+                {name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {(query || activeTag) && (
         <p className="font-mono text-xs text-muted-foreground">
           {filtered.length} / {cards.length} 件表示中
         </p>
@@ -60,9 +96,18 @@ export function CardListSearch({ deckId, cards }: { deckId: string; cards: CardI
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border py-16 text-center">
           <Layers className="h-8 w-8 text-muted-foreground" strokeWidth={1.5} />
-          <p className="text-sm text-muted-foreground">「{query}」に一致するカードが見つかりませんでした。</p>
-          <Button size="sm" variant="outline" onClick={() => setQuery('')}>
-            検索をクリア
+          <p className="text-sm text-muted-foreground">
+            {query ? `「${query}」に一致するカードが見つかりませんでした。` : '一致するカードが見つかりませんでした。'}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setQuery('')
+              setActiveTag(null)
+            }}
+          >
+            絞り込みをクリア
           </Button>
         </div>
       ) : (

@@ -83,6 +83,49 @@ export async function syncDeckTags(
   if (linkError) throw new Error(linkError.message)
 }
 
+// カードのタグをカンマ区切り文字列の内容で丸ごと置き換える(syncDeckTagsのカード版)
+export async function syncCardTags(
+  cardId: string,
+  ownerId: string,
+  rawTags: string | null | undefined
+) {
+  const supabase = await createClient()
+  const names = parseTagNames(rawTags)
+
+  const { error: deleteError } = await supabase.from('card_tags').delete().eq('card_id', cardId)
+  if (deleteError) throw new Error(deleteError.message)
+
+  if (names.length === 0) return
+
+  const tags = await upsertTags(ownerId, names)
+
+  const { error: linkError } = await supabase
+    .from('card_tags')
+    .insert(tags.map((tag) => ({ card_id: cardId, tag_id: tag.id })))
+  if (linkError) throw new Error(linkError.message)
+}
+
+// 複数カード分のタグをまとめて取得する(一覧表示用)
+export async function getCardTagsByCardIds(cardIds: string[]): Promise<Record<string, Tag[]>> {
+  if (cardIds.length === 0) return {}
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('card_tags')
+    .select('card_id, tags(id, name)')
+    .in('card_id', cardIds)
+
+  if (error) throw new Error(error.message)
+
+  const result: Record<string, Tag[]> = {}
+  for (const row of (data ?? []) as unknown as { card_id: string; tags: Tag | Tag[] | null }[]) {
+    const tag = Array.isArray(row.tags) ? row.tags[0] : row.tags
+    if (!tag) continue
+    if (!result[row.card_id]) result[row.card_id] = []
+    result[row.card_id].push(tag)
+  }
+  return result
+}
+
 // タグそのものを削除する(参照している deck_tags も cascade で削除される)
 export async function deleteTag(tagId: string) {
   const supabase = await createClient()

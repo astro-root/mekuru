@@ -2,12 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import {
-  backupSchema,
-  MAX_BACKUP_CARDS,
-  BACKUP_SCHEMA_VERSION,
-  type DeckBackup,
-} from '@/lib/import-export/backup'
+import { backupSchema, MAX_BACKUP_CARDS, BACKUP_SCHEMA_VERSION, type DeckBackup } from '@/lib/import-export/backup'
+import { getCardTagsByCardIds, syncCardTags } from '@/lib/actions/tags'
 
 async function getNextPosition(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -42,6 +38,7 @@ export async function getDeckBackup(deckId: string): Promise<DeckBackup | { erro
   if (cardsError) return { error: cardsError.message }
 
   const cardIds = (cards ?? []).map((c) => c.id)
+  const tagsByCardId = await getCardTagsByCardIds(cardIds)
   const reviewByCardId = new Map<
     string,
     {
@@ -93,6 +90,7 @@ export async function getDeckBackup(deckId: string): Promise<DeckBackup | { erro
       card_type: c.card_type as 'basic' | 'cloze',
       cloze_text: c.cloze_text,
       note: c.note,
+      tags: (tagsByCardId[c.id] ?? []).map((t) => t.name),
       review: reviewByCardId.get(c.id) ?? null,
     })),
   }
@@ -171,10 +169,24 @@ export async function restoreDeckBackup(deckId: string, rawBackup: unknown) {
     }
   }
 
+  // タグの復元(失敗してもカード自体は復元済みなので、エラーはログに留めて処理は続行する)
+  let tagRestoreFailed = false
+  for (let i = 0; i < sortedInserted.length; i++) {
+    const tags = backup.cards[i].tags
+    if (!tags || tags.length === 0) continue
+    try {
+      await syncCardTags(sortedInserted[i].id, user.id, tags.join(','))
+    } catch (e) {
+      tagRestoreFailed = true
+      console.error('tag restore failed:', e instanceof Error ? e.message : e)
+    }
+  }
+
   revalidatePath(`/decks/${deckId}`)
   return {
     success: true,
     count: sortedInserted.length,
     restoredReviews: reviewPayload.length,
+    tagRestoreFailed,
   }
 }

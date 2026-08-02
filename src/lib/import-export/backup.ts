@@ -24,6 +24,7 @@ export const backupCardSchema = z.object({
   card_type: z.enum(['basic', 'cloze']).default('basic'),
   cloze_text: z.string().max(2000).nullable().optional(),
   note: z.string().max(2000).nullable().optional(),
+  tags: z.array(z.string().max(50)).max(20).optional(),
   review: backupReviewSchema,
 })
 

@@ -21,6 +21,7 @@ type CardItem = {
   card_type: string
   cloze_text: string | null
   note: string | null
+  tags?: { id: string; name: string }[]
 }
 
 export function CardRow({ deckId, card }: { deckId: string; card: CardItem }) {
@@ -52,6 +53,18 @@ export function CardRow({ deckId, card }: { deckId: string; card: CardItem }) {
           <p className="truncate text-sm font-medium">{card.front}</p>
         </div>
         <p className="truncate text-sm text-muted-foreground mt-1">{card.back}</p>
+        {card.tags && card.tags.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {card.tags.map((tag) => (
+              <span
+                key={tag.id}
+                className="rounded-full bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground"
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

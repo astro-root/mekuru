@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { syncCardTags, getCardTagsByCardIds, type Tag } from './tags'
 
 const cardSchema = z.object({
   front: z.string().min(1, '表面は必須です').max(2000),
@@ -10,6 +11,7 @@ const cardSchema = z.object({
   card_type: z.enum(['basic', 'cloze']).default('basic'),
   cloze_text: z.string().max(2000).optional(),
   note: z.string().max(2000).optional(),
+  tags: z.string().max(500).optional(),
 })
 
 export async function getCards(deckId: string) {
@@ -21,7 +23,10 @@ export async function getCards(deckId: string) {
     .order('position', { ascending: true })
 
   if (error) throw new Error(error.message)
-  return data
+
+  const cards = data ?? []
+  const tagsByCardId = await getCardTagsByCardIds(cards.map((c) => c.id))
+  return cards.map((c) => ({ ...c, tags: tagsByCardId[c.id] ?? ([] as Tag[]) }))
 }
 
 async function getNextPosition(
@@ -40,25 +45,42 @@ async function getNextPosition(
 
 export async function createCard(deckId: string, formData: FormData) {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: '認証されていません' }
+
   const parsed = cardSchema.safeParse({
     front: formData.get('front'),
     back: formData.get('back'),
     card_type: formData.get('card_type') || 'basic',
     cloze_text: formData.get('cloze_text') || undefined,
     note: formData.get('note') || undefined,
+    tags: formData.get('tags') || undefined,
   })
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
   }
 
+  const { tags, ...cardFields } = parsed.data
   const position = await getNextPosition(supabase, deckId)
 
-  const { error } = await supabase.from('cards').insert({
-    deck_id: deckId,
-    position,
-    ...parsed.data,
-  })
+  const { data: card, error } = await supabase
+    .from('cards')
+    .insert({
+      deck_id: deckId,
+      position,
+      ...cardFields,
+    })
+    .select('id')
+    .single()
   if (error) return { error: error.message }
+
+  try {
+    await syncCardTags(card.id, user.id, tags)
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'タグの保存に失敗しました' }
+  }
 
   revalidatePath(`/decks/${deckId}`)
   return { success: true }
@@ -94,23 +116,37 @@ export async function createCardsBulk(
 
 export async function updateCard(deckId: string, cardId: string, formData: FormData) {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: '認証されていません' }
+
   const parsed = cardSchema.safeParse({
     front: formData.get('front'),
     back: formData.get('back'),
     card_type: formData.get('card_type') || 'basic',
     cloze_text: formData.get('cloze_text') || undefined,
     note: formData.get('note') || undefined,
+    tags: formData.get('tags') || undefined,
   })
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
   }
 
+  const { tags, ...cardFields } = parsed.data
+
   const { error } = await supabase
     .from('cards')
-    .update({ ...parsed.data, updated_at: new Date().toISOString() })
+    .update({ ...cardFields, updated_at: new Date().toISOString() })
     .eq('id', cardId)
 
   if (error) return { error: error.message }
+
+  try {
+    await syncCardTags(cardId, user.id, tags)
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'タグの保存に失敗しました' }
+  }
 
   revalidatePath(`/decks/${deckId}`)
   return { success: true }

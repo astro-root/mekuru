@@ -24,6 +24,7 @@ type CardItem = {
   card_type: string
   cloze_text: string | null
   note: string | null
+  tags?: { id: string; name: string }[]
 }
 
 const CARD_TYPES = [
@@ -117,6 +118,15 @@ export function CardFormDialog({
           <div className="space-y-1.5">
             <Label htmlFor="note">コメント(裏面と同時に表示・任意)</Label>
             <Textarea id="note" name="note" defaultValue={card?.note ?? ''} rows={2} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tags">タグ(カンマ区切り・任意)</Label>
+            <Input
+              id="tags"
+              name="tags"
+              defaultValue={(card?.tags ?? []).map((t) => t.name).join(', ')}
+              placeholder="例: 歴史, 江戸時代"
+            />
           </div>
           {cardType === 'cloze' && (
             <div className="space-y-1.5">
