@@ -1,5 +1,25 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## セットアップ
+
+`.env.example` を `.env.local` にコピーし、値を埋めてください。
+
+```bash
+cp .env.example .env.local
+```
+
+| 変数 | 必須 | 用途 |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | ○ | Supabaseプロジェクトの接続先 |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ○ | クライアント/サーバー共通のanonキー |
+| `SUPABASE_SERVICE_ROLE_KEY` | ○ | 学習リマインダーのcronジョブ専用。**絶対にクライアントへ公開しないこと** |
+| `CRON_SECRET` | 任意 | `/api/cron/study-reminder` を保護するBearerトークン。未設定だとリマインダーは常に401を返します |
+| `RESEND_API_KEY` | 任意 | [Resend](https://resend.com) のAPIキー。学習リマインダーメールの送信に使用 |
+| `REMINDER_FROM_EMAIL` | 任意 | Resendで送信ドメイン認証済みの送信元アドレス |
+
+学習リマインダー(`CRON_SECRET` / `RESEND_API_KEY` / `REMINDER_FROM_EMAIL`)は未設定でもアプリ自体は動作しますが、
+`vercel.json` の cron(`/api/cron/study-reminder` を毎時実行)は動くため、本番運用する場合は必ず設定してください。
+
 ## Getting Started
 
 First, run the development server:
