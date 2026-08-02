@@ -29,6 +29,7 @@ import {
   ChevronRight,
   ListOrdered,
   Shuffle,
+  Zap,
 } from 'lucide-react'
 
 const RATING_CONFIG: {
@@ -128,6 +129,8 @@ export function ReviewSession({
   const [rating, setRating] = useState<ReviewRating | null>(null)
   const [sessionReviewedCount, setSessionReviewedCount] = useState(0)
   const [orderMode, setOrderMode] = useState<OrderMode>('sequential')
+  const [quizRevealMode, setQuizRevealMode] = useState(false)
+  const [revealedChars, setRevealedChars] = useState(0)
   const [dragX, setDragX] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const router = useRouter()
@@ -397,6 +400,35 @@ export function ReviewSession({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [flipped, current, handleFlip, handleRate, isReviewingPast])
 
+  const revealTargetText = current
+    ? current.cardType === 'cloze' && current.clozeText
+      ? renderClozeQuestion(current.clozeText)
+      : current.front
+    : ''
+
+  useEffect(() => {
+    if (!quizRevealMode || !current) return
+    const total = revealTargetText.length
+    const shouldReveal = !flipped && !isReviewingPast && total > 0
+
+    const resetTimer = setTimeout(() => setRevealedChars(0), 0)
+    if (!shouldReveal) return () => clearTimeout(resetTimer)
+
+    const id = setInterval(() => {
+      setRevealedChars((n) => {
+        if (n + 1 >= total) {
+          clearInterval(id)
+          return total
+        }
+        return n + 1
+      })
+    }, 90)
+    return () => {
+      clearTimeout(resetTimer)
+      clearInterval(id)
+    }
+  }, [quizRevealMode, current, flipped, isReviewingPast, revealTargetText])
+
   if (cards === null) {
     return (
       <div className="flex flex-col items-center gap-3 py-24">
@@ -444,6 +476,10 @@ export function ReviewSession({
     current!.cardType === 'cloze' && current!.clozeText
       ? renderClozeQuestion(current!.clozeText)
       : current!.front
+
+  const displayedQuestionText =
+    quizRevealMode && !flipped && !isReviewingPast ? questionText.slice(0, revealedChars) : questionText
+  const isRevealing = quizRevealMode && !flipped && !isReviewingPast && revealedChars < questionText.length
 
   const answerText =
     current!.cardType === 'cloze' && current!.clozeText
@@ -517,6 +553,19 @@ export function ReviewSession({
           >
             <Shuffle className="h-3.5 w-3.5" />
           </button>
+          <button
+            type="button"
+            onClick={() => setQuizRevealMode((v) => !v)}
+            aria-label="早押し表示(問題文を少しずつ表示)"
+            title="早押し表示"
+            className={`flex h-6 items-center gap-1 rounded px-1.5 text-xs transition-colors ${
+              quizRevealMode
+                ? 'bg-secondary text-secondary-foreground'
+                : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <Zap className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
 
@@ -563,11 +612,12 @@ export function ReviewSession({
           >
             <span className="font-mono text-xs tracking-wide text-muted-foreground">Q</span>
             <p className="font-heading text-xl font-medium leading-relaxed whitespace-pre-wrap">
-              {questionText}
+              {displayedQuestionText}
+              {isRevealing && <span className="animate-pulse">▏</span>}
             </p>
             {!flipped && (
               <span className="mt-4 text-xs text-muted-foreground">
-                タップ / Space でめくる
+                {isRevealing ? 'わかったら タップ / Space でめくる' : 'タップ / Space でめくる'}
               </span>
             )}
           </div>
