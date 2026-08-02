@@ -11,7 +11,10 @@ export function ThemeToggle() {
 
   // next-themes needs a client mount before resolvedTheme is reliable,
   // otherwise the icon can flash/mismatch during hydration.
-  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    const id = setTimeout(() => setMounted(true), 0)
+    return () => clearTimeout(id)
+  }, [])
 
   if (!mounted) {
     return (

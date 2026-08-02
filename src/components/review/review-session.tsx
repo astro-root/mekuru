@@ -173,8 +173,12 @@ export function ReviewSession({
   }, [deckId])
 
   useEffect(() => {
-    loadCards()
-    setIsOffline(typeof navigator !== 'undefined' && !navigator.onLine)
+    void (async () => {
+      await loadCards()
+    })()
+    const initialOfflineCheck = setTimeout(() => {
+      setIsOffline(typeof navigator !== 'undefined' && !navigator.onLine)
+    }, 0)
 
     function refreshPendingCount() {
       getPendingReviewCount(deckId)
@@ -195,6 +199,7 @@ export function ReviewSession({
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     return () => {
+      clearTimeout(initialOfflineCheck)
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
