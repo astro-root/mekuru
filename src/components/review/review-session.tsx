@@ -5,15 +5,18 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { renderClozeQuestion, renderClozeAnswer } from '@/lib/cloze'
+import { toast } from 'sonner'
 import {
   hydrateDeckCache,
   getCachedDueCards,
   getCachedCardsByIds,
   applyReviewOffline,
+  undoLastReviewOffline,
   syncPendingReviews,
   getPendingReviewCount,
   getIntervalPreview,
   type OfflineDueCard,
+  type AppliedReview,
 } from '@/lib/offline/sync'
 import type { ReviewRating } from '@/lib/fsrs/scheduler'
 import type { ReviewStats } from '@/lib/actions/reviews'
@@ -121,6 +124,7 @@ export function ReviewSession({
   const [flipped, setFlipped] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
   const [pendingReviewCount, setPendingReviewCount] = useState(0)
+  const lastAppliedRef = useRef<{ cardId: string; applied: AppliedReview } | null>(null)
   const [rating, setRating] = useState<ReviewRating | null>(null)
   const [sessionReviewedCount, setSessionReviewedCount] = useState(0)
   const [orderMode, setOrderMode] = useState<OrderMode>('sequential')
@@ -226,15 +230,56 @@ export function ReviewSession({
   const displayedStreak =
     initialStats.streak + (sessionReviewedCount > 0 && initialStats.todayCount === 0 ? 1 : 0)
 
+  const handleUndo = useCallback(async () => {
+    const last = lastAppliedRef.current
+    if (!last) return
+    lastAppliedRef.current = null
+
+    const { error } = await undoLastReviewOffline(deckId, last.cardId, last.applied)
+    if (error) toast.error(error)
+    else toast.success('評価を取り消しました')
+
+    setSessionReviewedCount((c) => Math.max(0, c - 1))
+    setIndex((i) => Math.max(0, i - 1))
+    setLiveIndex((i) => {
+      const next = Math.max(0, i - 1)
+      setCards((prev) => {
+        if (!prev) return prev
+        writeSnapshot(deckId, {
+          date: todayJstStr(),
+          cardIds: prev.map((c) => c.id),
+          liveIndex: next,
+          orderMode,
+        })
+        return prev
+      })
+      return next
+    })
+    setFlipped(false)
+    setRating(null)
+    getPendingReviewCount(deckId)
+      .then(setPendingReviewCount)
+      .catch(() => {})
+  }, [deckId, orderMode])
+
   const handleRate = useCallback(
     async (r: ReviewRating) => {
       if (!current || rating || isReviewingPast || !cards) return
       setRating(r)
-      await applyReviewOffline(deckId, current.id, r)
+      const applied = await applyReviewOffline(deckId, current.id, r)
+      lastAppliedRef.current = { cardId: current.id, applied }
       setSessionReviewedCount((c) => c + 1)
       getPendingReviewCount(deckId)
         .then(setPendingReviewCount)
         .catch(() => {})
+
+      toast('評価を記録しました', {
+        action: {
+          label: '取り消す',
+          onClick: () => handleUndo(),
+        },
+        duration: 6000,
+      })
 
       const nextLiveIndex = liveIndex + 1
       // 中断して戻った時に番号・分母を引き継げるよう、評価の都度バッチの進捗を保存する
@@ -253,7 +298,7 @@ export function ReviewSession({
         setDragX(0)
       }, 160)
     },
-    [current, deckId, rating, isReviewingPast, cards, liveIndex, orderMode]
+    [current, deckId, rating, isReviewingPast, cards, liveIndex, orderMode, handleUndo]
   )
 
   const handleFlip = useCallback(() => {

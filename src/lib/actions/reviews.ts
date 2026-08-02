@@ -241,6 +241,68 @@ export async function submitReview(
   return { success: true }
 }
 
+export type FsrsSnapshot = {
+  due: string
+  stability: number
+  difficulty: number
+  elapsed_days: number
+  scheduled_days: number
+  reps: number
+  lapses: number
+  state: number
+  last_review: string | null
+  learning_steps: number
+} | null
+
+/**
+ * 直前の評価を取り消す。previousStateがnullの場合は「取り消す評価が初回の復習だった」
+ * ことを意味し、card_reviews行自体を削除して未学習状態に戻す。
+ */
+export async function undoReview(
+  deckId: string,
+  cardId: string,
+  clientReviewId: string,
+  previousState: FsrsSnapshot
+) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: '認証されていません' }
+
+  if (previousState) {
+    const { error } = await supabase.from('card_reviews').upsert(
+      {
+        user_id: user.id,
+        card_id: cardId,
+        ...previousState,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,card_id' }
+    )
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await supabase
+      .from('card_reviews')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('card_id', cardId)
+    if (error) return { error: error.message }
+  }
+
+  const { error: logError } = await supabase
+    .from('review_logs')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('client_id', clientReviewId)
+  if (logError) {
+    console.error('review_logs delete failed:', logError.message)
+  }
+
+  revalidatePath(`/review/${deckId}`)
+  return { success: true }
+}
+
 /**
  * ログインユーザーの全デッキについて、デッキごとの「今日めくれるカード数」をまとめて計算する。
  * デッキごとにgetDueCardsを呼ぶとデッキ数×2回のクエリが発生してしまうため、

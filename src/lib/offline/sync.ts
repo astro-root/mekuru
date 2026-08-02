@@ -1,7 +1,7 @@
 import { db, type OfflineCard } from './db'
 import { createEmptyCard, type Card } from 'ts-fsrs'
 import { scheduleReview, isDue, type ReviewRating } from '@/lib/fsrs/scheduler'
-import { submitReview, getDeckCardsWithState, type CardWithState } from '@/lib/actions/reviews'
+import { submitReview, undoReview, getDeckCardsWithState, type CardWithState, type FsrsSnapshot } from '@/lib/actions/reviews'
 
 export function parseFsrsState(json: string): Card {
   const raw = JSON.parse(json)
@@ -83,12 +83,18 @@ export async function getCachedDueCards(deckId: string): Promise<OfflineDueCard[
     }))
 }
 
+export type AppliedReview = {
+  reviewQueueId: string
+  previousFsrsState: string | null
+}
+
 export async function applyReviewOffline(
   deckId: string,
   cardId: string,
   rating: ReviewRating
-): Promise<void> {
+): Promise<AppliedReview> {
   const existing = await db.cards.get(cardId)
+  const previousFsrsState = existing ? existing.fsrsState : null
   const currentFsrsCard = existing ? parseFsrsState(existing.fsrsState) : createEmptyCard()
   const result = scheduleReview(currentFsrsCard, rating)
 
@@ -99,8 +105,9 @@ export async function applyReviewOffline(
     })
   }
 
+  const reviewQueueId = crypto.randomUUID()
   await db.reviewQueue.add({
-    id: crypto.randomUUID(),
+    id: reviewQueueId,
     deckId,
     cardId,
     rating,
@@ -110,6 +117,60 @@ export async function applyReviewOffline(
 
   // オンラインならすぐに同期を試みる(失敗しても未同期のまま残るだけなので問題ない)
   syncPendingReviews(deckId).catch(() => {})
+
+  return { reviewQueueId, previousFsrsState }
+}
+
+function cardToSnapshot(card: Card): NonNullable<FsrsSnapshot> {
+  return {
+    due: card.due.toISOString(),
+    stability: card.stability,
+    difficulty: card.difficulty,
+    elapsed_days: card.elapsed_days,
+    scheduled_days: card.scheduled_days,
+    reps: card.reps,
+    lapses: card.lapses,
+    state: card.state,
+    last_review: card.last_review ? card.last_review.toISOString() : null,
+    learning_steps: card.learning_steps ?? 0,
+  }
+}
+
+/**
+ * 直前の評価を取り消す。
+ * - まだサーバーへ未送信ならキューから削除するだけでよい
+ * - 既にサーバーへ送信済みならサーバー側のFSRS状態・復習ログも合わせて戻す
+ */
+export async function undoLastReviewOffline(
+  deckId: string,
+  cardId: string,
+  applied: AppliedReview
+): Promise<{ error?: string }> {
+  const { reviewQueueId, previousFsrsState } = applied
+  const item = await db.reviewQueue.get(reviewQueueId)
+
+  if (previousFsrsState) {
+    await db.cards.update(cardId, { fsrsState: previousFsrsState, updatedAt: new Date().toISOString() })
+  } else {
+    // 元々未学習だったカードなので、ローカルキャッシュからも復習状態を消す
+    await db.cards.update(cardId, { fsrsState: stringifyFsrsCard(createEmptyCard()), updatedAt: new Date().toISOString() })
+  }
+
+  if (!item || item.synced === 0) {
+    if (item) await db.reviewQueue.delete(reviewQueueId)
+    return {}
+  }
+
+  // 既にサーバーへ送信済みの場合は、サーバー側のcard_reviews/review_logsも戻す
+  const snapshot = previousFsrsState ? cardToSnapshot(parseFsrsState(previousFsrsState)) : null
+  try {
+    const result = await undoReview(deckId, cardId, reviewQueueId, snapshot)
+    if (result?.error) return { error: result.error }
+  } catch {
+    return { error: 'オフラインのため、サーバー側の取り消しは接続復帰後に反映されます' }
+  }
+  await db.reviewQueue.delete(reviewQueueId)
+  return {}
 }
 
 export async function getCachedCardsByIds(
