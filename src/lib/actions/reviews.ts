@@ -388,6 +388,73 @@ export async function getReviewStats(): Promise<ReviewStats> {
   return { todayCount, streak }
 }
 
+export type StrugglingCard = {
+  cardId: string
+  deckId: string
+  deckName: string
+  front: string
+  back: string
+  lapses: number
+  difficulty: number
+  state: number
+  due: string
+}
+
+/**
+ * 「間違えた回数が多い」「FSRSの難易度が高い」カードを横断的に一覧する。
+ * 未学習(state=New)のカードは対象外(まだ間違えようがないため)。
+ */
+export async function getStrugglingCards(limit = 50): Promise<StrugglingCard[]> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('card_reviews')
+    .select('card_id, lapses, difficulty, state, due, cards(front, back, deck_id, decks(name))')
+    .eq('user_id', user.id)
+    .neq('state', State.New)
+    .or('lapses.gt.0,difficulty.gte.6')
+    .order('lapses', { ascending: false })
+    .order('difficulty', { ascending: false })
+    .limit(limit)
+
+  if (error || !data) return []
+
+  type Row = {
+    card_id: string
+    lapses: number
+    difficulty: number
+    state: number
+    due: string
+    cards:
+      | { front: string; back: string; deck_id: string; decks: { name: string } | { name: string }[] | null }
+      | { front: string; back: string; deck_id: string; decks: { name: string } | { name: string }[] | null }[]
+      | null
+  }
+
+  return (data as unknown as Row[])
+    .map((row) => {
+      const card = firstOf(row.cards)
+      if (!card) return null
+      const deck = firstOf(card.decks)
+      return {
+        cardId: row.card_id,
+        deckId: card.deck_id,
+        deckName: deck?.name ?? '(削除済みデッキ)',
+        front: card.front,
+        back: card.back,
+        lapses: row.lapses,
+        difficulty: row.difficulty,
+        state: row.state,
+        due: row.due,
+      }
+    })
+    .filter((x): x is StrugglingCard => x !== null)
+}
+
 export type ReviewHistoryEntry = {
   id: string
   deckId: string
