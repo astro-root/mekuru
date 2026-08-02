@@ -1,7 +1,8 @@
 import { db, type OfflineCard } from './db'
-import { createEmptyCard, type Card } from 'ts-fsrs'
+import { createEmptyCard, State, type Card } from 'ts-fsrs'
 import { scheduleReview, isDue, type ReviewRating } from '@/lib/fsrs/scheduler'
 import { submitReview, undoReview, getDeckCardsWithState, type CardWithState, type FsrsSnapshot } from '@/lib/actions/reviews'
+import { getDeckNewCardsLimit } from '@/lib/actions/decks'
 
 export function parseFsrsState(json: string): Card {
   const raw = JSON.parse(json)
@@ -51,6 +52,21 @@ export async function hydrateDeckCache(deckId: string): Promise<void> {
     await db.cards.where({ deckId }).delete()
     await db.cards.bulkAdd(offlineCards)
   })
+
+  // 新規カード数上限も合わせてキャッシュする。取得に失敗してもカード本体の
+  // キャッシュ更新は既に完了しているので、ここは握りつぶして既存設定を残す。
+  try {
+    const newCardsPerDay = await getDeckNewCardsLimit(deckId)
+    await db.deckSettings.put({ deckId, newCardsPerDay, updatedAt: now })
+  } catch {
+    // 何もしない(前回キャッシュした上限をそのまま使う)
+  }
+}
+
+/** キャッシュ済みの新規カード数上限を取得する。未取得の場合はnull(上限なし扱い)を返す */
+export async function getCachedNewCardsLimit(deckId: string): Promise<number | null> {
+  const setting = await db.deckSettings.get(deckId)
+  return setting ? setting.newCardsPerDay : null
 }
 
 export type OfflineDueCard = {
@@ -64,13 +80,28 @@ export type OfflineDueCard = {
   fsrsState: string
 }
 
+/**
+ * 出題対象カードを取得する。未学習(state === New)カードは新規カード数上限を適用し、
+ * 復習期限を迎えたカード(state !== New)は上限の対象外(通常通り全件出題)とする。
+ * 上限がnull(未設定)の場合は従来通り無制限。
+ */
 export async function getCachedDueCards(deckId: string): Promise<OfflineDueCard[]> {
   const cards = await db.cards.where({ deckId }).toArray()
   const now = new Date()
+  const newCardsPerDay = await getCachedNewCardsLimit(deckId)
 
-  return cards
+  const due = cards
     .filter((c) => isDue(parseFsrsState(c.fsrsState), now))
     .sort((a, b) => a.position - b.position) // 既定は登録順(position昇順)
+
+  const reviewCards = due.filter((c) => parseFsrsState(c.fsrsState).state !== State.New)
+  let newCards = due.filter((c) => parseFsrsState(c.fsrsState).state === State.New)
+  if (newCardsPerDay !== null) {
+    newCards = newCards.slice(0, newCardsPerDay)
+  }
+
+  return [...reviewCards, ...newCards]
+    .sort((a, b) => a.position - b.position)
     .map((c) => ({
       id: c.id,
       front: c.front,

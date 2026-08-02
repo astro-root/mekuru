@@ -11,6 +11,7 @@ const deckSchema = z.object({
   genre: z.string().max(50).optional(),
   difficulty: z.coerce.number().int().min(1).max(5).default(1),
   tags: z.string().max(500).optional(),
+  newCardsPerDay: z.coerce.number().int().min(0).max(9999).nullable().optional(),
 })
 
 type DeckRow = {
@@ -21,6 +22,7 @@ type DeckRow = {
   genre: string | null
   difficulty: number
   is_public: boolean
+  new_cards_per_day: number | null
   created_at: string
   updated_at: string
 }
@@ -45,6 +47,7 @@ function toDeckRow(row: DeckRow): DeckRow {
     genre: row.genre,
     difficulty: row.difficulty,
     is_public: row.is_public,
+    new_cards_per_day: row.new_cards_per_day,
     created_at: row.created_at,
     updated_at: row.updated_at,
   }
@@ -93,24 +96,30 @@ export async function createDeck(formData: FormData) {
   } = await supabase.auth.getUser()
   if (!user) return { error: '認証されていません' }
 
+  const rawNewCardsPerDay = formData.get('newCardsPerDay')
+
   const parsed = deckSchema.safeParse({
     name: formData.get('name'),
     description: formData.get('description') || undefined,
     genre: formData.get('genre') || undefined,
     difficulty: formData.get('difficulty') || 1,
     tags: formData.get('tags') || undefined,
+    // 空文字は「上限なし」を意味するのでnullに変換する。未送信(null)の場合はundefinedのままにし、
+    // z.object().optional()によりデフォルト値の扱いに委ねる。
+    newCardsPerDay: rawNewCardsPerDay === '' ? null : rawNewCardsPerDay ?? undefined,
   })
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
   }
 
-  const { tags, ...deckFields } = parsed.data
+  const { tags, newCardsPerDay, ...deckFields } = parsed.data
 
   const { data: deck, error } = await supabase
     .from('decks')
     .insert({
       owner_id: user.id,
       ...deckFields,
+      new_cards_per_day: newCardsPerDay ?? null,
     })
     .select('id')
     .single()
@@ -133,22 +142,29 @@ export async function updateDeck(deckId: string, formData: FormData) {
   } = await supabase.auth.getUser()
   if (!user) return { error: '認証されていません' }
 
+  const rawNewCardsPerDay = formData.get('newCardsPerDay')
+
   const parsed = deckSchema.safeParse({
     name: formData.get('name'),
     description: formData.get('description') || undefined,
     genre: formData.get('genre') || undefined,
     difficulty: formData.get('difficulty') || 1,
     tags: formData.get('tags') || undefined,
+    newCardsPerDay: rawNewCardsPerDay === '' ? null : rawNewCardsPerDay ?? undefined,
   })
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
   }
 
-  const { tags, ...deckFields } = parsed.data
+  const { tags, newCardsPerDay, ...deckFields } = parsed.data
 
   const { error } = await supabase
     .from('decks')
-    .update({ ...deckFields, updated_at: new Date().toISOString() })
+    .update({
+      ...deckFields,
+      new_cards_per_day: newCardsPerDay ?? null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', deckId)
 
   if (error) return { error: error.message }
@@ -161,6 +177,23 @@ export async function updateDeck(deckId: string, formData: FormData) {
 
   revalidatePath('/decks')
   return { success: true }
+}
+
+/**
+ * オフラインキャッシュの同期用に、新規カード数上限だけを取得する軽量アクション。
+ * デッキ全体(タグ結合込み)を取得するgetDeckより通信量が小さいため、
+ * sync.ts側の頻繁な呼び出しにはこちらを使う。
+ */
+export async function getDeckNewCardsLimit(deckId: string): Promise<number | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('decks')
+    .select('new_cards_per_day')
+    .eq('id', deckId)
+    .single()
+
+  if (error || !data) return null
+  return data.new_cards_per_day
 }
 
 export async function deleteDeck(deckId: string) {

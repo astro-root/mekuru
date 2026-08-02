@@ -22,15 +22,27 @@ export interface OfflineReviewQueueItem {
   synced: number // 0 = 未同期, 1 = 同期済み
 }
 
+export interface OfflineDeckSetting {
+  deckId: string
+  newCardsPerDay: number | null // nullは上限なし
+  updatedAt: string
+}
+
 class MekuruDB extends Dexie {
   cards!: Table<OfflineCard, string>
   reviewQueue!: Table<OfflineReviewQueueItem, string>
+  deckSettings!: Table<OfflineDeckSetting, string>
 
   constructor() {
     super('mekuru')
     this.version(2).stores({
       cards: 'id, deckId, updatedAt',
       reviewQueue: 'id, deckId, cardId, synced, reviewedAt',
+    })
+    this.version(3).stores({
+      cards: 'id, deckId, updatedAt',
+      reviewQueue: 'id, deckId, cardId, synced, reviewedAt',
+      deckSettings: 'deckId',
     })
   }
 }

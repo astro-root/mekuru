@@ -23,6 +23,7 @@ type Deck = {
   description: string | null
   genre: string | null
   difficulty: number
+  new_cards_per_day: number | null
 }
 
 export function DeckFormDialog({
@@ -35,11 +36,15 @@ export function DeckFormDialog({
   const [open, setOpen] = useState(false)
   const [isPending, setIsPending] = useState(false)
   const [difficulty, setDifficulty] = useState(deck?.difficulty ?? 1)
+  const [newCardsPerDay, setNewCardsPerDay] = useState(
+    deck?.new_cards_per_day != null ? String(deck.new_cards_per_day) : ''
+  )
   const router = useRouter()
   const isEdit = !!deck
 
   async function handleSubmit(formData: FormData) {
     formData.set('difficulty', String(difficulty))
+    formData.set('newCardsPerDay', newCardsPerDay.trim())
     setIsPending(true)
     const result = isEdit
       ? await updateDeck(deck.id, formData)
@@ -60,7 +65,10 @@ export function DeckFormDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
-        if (next) setDifficulty(deck?.difficulty ?? 1)
+        if (next) {
+          setDifficulty(deck?.difficulty ?? 1)
+          setNewCardsPerDay(deck?.new_cards_per_day != null ? String(deck.new_cards_per_day) : '')
+        }
       }}
     >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -118,6 +126,22 @@ export function DeckFormDialog({
               </div>
               <span className="font-mono text-sm text-muted-foreground">{difficulty} / 5</span>
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="newCardsPerDay">1日の新規カード数上限</Label>
+            <Input
+              id="newCardsPerDay"
+              name="newCardsPerDay"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              placeholder="空欄で上限なし"
+              value={newCardsPerDay}
+              onChange={(e) => setNewCardsPerDay(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              1日に新しく出題する未学習カードの上限数です。空欄の場合は上限を設けません。
+            </p>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isPending}>

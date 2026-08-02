@@ -102,10 +102,19 @@ export async function getDueCards(deckId: string): Promise<DueCard[]> {
   } = await supabase.auth.getUser()
   if (!user) throw new Error('認証されていません')
 
+  const { data: deck, error: deckError } = await supabase
+    .from('decks')
+    .select('new_cards_per_day')
+    .eq('id', deckId)
+    .single()
+  if (deckError) throw new Error(deckError.message)
+  const newCardsLimit: number | null = deck?.new_cards_per_day ?? null
+
   const { data: cards, error: cardsError } = await supabase
     .from('cards')
     .select('*')
     .eq('deck_id', deckId)
+    .order('position', { ascending: true })
   if (cardsError) throw new Error(cardsError.message)
   if (!cards || cards.length === 0) return []
 
@@ -123,10 +132,13 @@ export async function getDueCards(deckId: string): Promise<DueCard[]> {
   const now = new Date()
 
   const due: DueCard[] = []
+  let newCardsIntroduced = 0
   for (const card of cards) {
     const reviewRow = reviewByCardId.get(card.id)
     if (!reviewRow) {
-      // 未学習カードは常に出題対象
+      // 未学習カード: 新規カード数上限に達していれば出題しない
+      if (newCardsLimit !== null && newCardsIntroduced >= newCardsLimit) continue
+      newCardsIntroduced++
       due.push({
         id: card.id,
         front: card.front,
@@ -307,6 +319,8 @@ export async function undoReview(
  * ログインユーザーの全デッキについて、デッキごとの「今日めくれるカード数」をまとめて計算する。
  * デッキごとにgetDueCardsを呼ぶとデッキ数×2回のクエリが発生してしまうため、
  * cards/card_reviewsを1回ずつ取得してメモリ上で集計する。
+ * 未学習(state === New)カードはデッキごとの新規カード数上限(new_cards_per_day)を適用し、
+ * 復習期限を迎えたカード(既学習)は上限の対象外とする。
  */
 export async function getDueCountsByDeck(): Promise<Record<string, number>> {
   const supabase = await createClient()
@@ -315,9 +329,16 @@ export async function getDueCountsByDeck(): Promise<Record<string, number>> {
   } = await supabase.auth.getUser()
   if (!user) return {}
 
+  const { data: decks, error: decksError } = await supabase
+    .from('decks')
+    .select('id, new_cards_per_day')
+  if (decksError || !decks) return {}
+  const newCardsLimitByDeck = new Map(decks.map((d) => [d.id, d.new_cards_per_day as number | null]))
+
   const { data: cards, error: cardsError } = await supabase
     .from('cards')
     .select('id, deck_id')
+    .order('position', { ascending: true })
   if (cardsError || !cards) return {}
 
   const { data: reviews, error: reviewsError } = await supabase
@@ -329,11 +350,22 @@ export async function getDueCountsByDeck(): Promise<Record<string, number>> {
   const reviewByCardId = new Map((reviews ?? []).map((r) => [r.card_id, r]))
   const now = new Date()
   const counts: Record<string, number> = {}
+  const newCardsIntroducedByDeck: Record<string, number> = {}
 
   for (const card of cards) {
     const reviewRow = reviewByCardId.get(card.id)
-    const dueNow = !reviewRow || isDue(rowToFsrsCard(reviewRow), now)
-    if (dueNow) {
+
+    if (!reviewRow) {
+      // 未学習カード: デッキの新規カード数上限を適用する
+      const limit = newCardsLimitByDeck.get(card.deck_id) ?? null
+      const introduced = newCardsIntroducedByDeck[card.deck_id] ?? 0
+      if (limit !== null && introduced >= limit) continue
+      newCardsIntroducedByDeck[card.deck_id] = introduced + 1
+      counts[card.deck_id] = (counts[card.deck_id] ?? 0) + 1
+      continue
+    }
+
+    if (isDue(rowToFsrsCard(reviewRow), now)) {
       counts[card.deck_id] = (counts[card.deck_id] ?? 0) + 1
     }
   }
@@ -513,4 +545,3 @@ export async function getReviewHistory(limit = 100): Promise<ReviewHistoryEntry[
     }
   })
 }
-

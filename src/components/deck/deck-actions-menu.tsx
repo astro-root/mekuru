@@ -19,6 +19,7 @@ type Deck = {
   description: string | null
   genre: string | null
   difficulty: number
+  new_cards_per_day: number | null
 }
 
 export function DeckActionsMenu({ deck }: { deck: Deck }) {
