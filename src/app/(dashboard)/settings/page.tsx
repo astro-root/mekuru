@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import { DeleteAccountSection } from '@/components/settings/delete-account-section'
 import { BackupSection } from '@/components/settings/backup-section'
+import { ReminderSection } from '@/components/settings/reminder-section'
+import { getReminderSettings } from '@/lib/actions/reminders'
 
 export const metadata: Metadata = {
   title: "設定",
 }
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const reminderSettings = await getReminderSettings()
+
   return (
     <div className="space-y-6">
       <div>
@@ -16,6 +20,7 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      <ReminderSection initialSettings={reminderSettings} />
       <BackupSection />
 
       <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
