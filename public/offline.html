@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>オフラインです — めくる</title>
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #F5F4EF;
+    color: #1C2130;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    text-align: center;
+    padding: 24px;
+  }
+  .card {
+    max-width: 360px;
+  }
+  h1 {
+    font-size: 18px;
+    margin: 0 0 8px;
+  }
+  p {
+    font-size: 14px;
+    color: #6b7280;
+    line-height: 1.6;
+    margin: 0 0 20px;
+  }
+  button {
+    background: #3D4A8C;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>オフラインです</h1>
+    <p>
+      このページはまだキャッシュされていないため表示できません。<br />
+      一度オンラインの状態で開いたページ・デッキであれば、オフラインでも復習を続けられます。
+    </p>
+    <button onclick="location.reload()">再読み込み</button>
+  </div>
+</body>
+</html>
