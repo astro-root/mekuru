@@ -32,7 +32,7 @@ export async function getDeckBackup(deckId: string): Promise<DeckBackup | { erro
 
   const { data: cards, error: cardsError } = await supabase
     .from('cards')
-    .select('id, front, back, cloze_text, card_type, note')
+    .select('id, front, back, cloze_text, card_type, note, is_favorite, is_suspended')
     .eq('deck_id', deckId)
     .order('position', { ascending: true })
   if (cardsError) return { error: cardsError.message }
@@ -91,6 +91,8 @@ export async function getDeckBackup(deckId: string): Promise<DeckBackup | { erro
       cloze_text: c.cloze_text,
       note: c.note,
       tags: (tagsByCardId[c.id] ?? []).map((t) => t.name),
+      is_favorite: c.is_favorite,
+      is_suspended: c.is_suspended,
       review: reviewByCardId.get(c.id) ?? null,
     })),
   }
@@ -127,6 +129,8 @@ export async function restoreDeckBackup(deckId: string, rawBackup: unknown) {
     card_type: c.card_type,
     cloze_text: c.cloze_text ?? null,
     note: c.note ?? null,
+    is_favorite: c.is_favorite ?? false,
+    is_suspended: c.is_suspended ?? false,
     position: startPosition + i,
   }))
 

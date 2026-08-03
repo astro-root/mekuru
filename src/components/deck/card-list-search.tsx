@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Search, X, Layers } from 'lucide-react'
+import { Search, X, Layers, Star } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { CardRow } from '@/components/deck/card-row'
 import { CardFormDialog } from '@/components/deck/card-form-dialog'
@@ -16,11 +16,15 @@ type CardItem = {
   cloze_text: string | null
   note: string | null
   tags?: { id: string; name: string }[]
+  is_favorite?: boolean
+  is_suspended?: boolean
 }
 
 export function CardListSearch({ deckId, cards }: { deckId: string; cards: CardItem[] }) {
   const [query, setQuery] = useState('')
   const [activeTag, setActiveTag] = useState<string | null>(null)
+  const [favoriteOnly, setFavoriteOnly] = useState(false)
+  const [showSuspended, setShowSuspended] = useState(true)
 
   const allTagNames = useMemo(() => {
     const names = new Set<string>()
@@ -33,6 +37,8 @@ export function CardListSearch({ deckId, cards }: { deckId: string; cards: CardI
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return cards.filter((c) => {
+      if (favoriteOnly && !c.is_favorite) return false
+      if (!showSuspended && c.is_suspended) return false
       if (activeTag && !(c.tags ?? []).some((t) => t.name === activeTag)) return false
       if (!q) return true
       const tagNames = (c.tags ?? []).map((t) => t.name).join('\n')
@@ -41,7 +47,7 @@ export function CardListSearch({ deckId, cards }: { deckId: string; cards: CardI
         .toLowerCase()
       return haystack.includes(q)
     })
-  }, [cards, query, activeTag])
+  }, [cards, query, activeTag, favoriteOnly, showSuspended])
 
   return (
     <div className="space-y-3">
@@ -63,6 +69,32 @@ export function CardListSearch({ deckId, cards }: { deckId: string; cards: CardI
             <X className="h-4 w-4" />
           </button>
         )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setFavoriteOnly((v) => !v)}
+          className={`flex items-center gap-1 rounded-full px-2.5 py-1 font-mono text-xs transition-colors ${
+            favoriteOnly
+              ? 'bg-secondary text-secondary-foreground'
+              : 'bg-muted text-muted-foreground hover:bg-muted/70'
+          }`}
+        >
+          <Star className="h-3 w-3" fill={favoriteOnly ? 'currentColor' : 'none'} />
+          お気に入りのみ
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowSuspended((v) => !v)}
+          className={`rounded-full px-2.5 py-1 font-mono text-xs transition-colors ${
+            showSuspended
+              ? 'bg-muted text-muted-foreground hover:bg-muted/70'
+              : 'bg-secondary text-secondary-foreground'
+          }`}
+        >
+          {showSuspended ? '非表示カードも表示中' : '非表示カードを隠しています'}
+        </button>
       </div>
 
       {allTagNames.length > 0 && (
@@ -87,7 +119,7 @@ export function CardListSearch({ deckId, cards }: { deckId: string; cards: CardI
         </div>
       )}
 
-      {(query || activeTag) && (
+      {(query || activeTag || favoriteOnly || !showSuspended) && (
         <p className="font-mono text-xs text-muted-foreground">
           {filtered.length} / {cards.length} 件表示中
         </p>
@@ -105,6 +137,8 @@ export function CardListSearch({ deckId, cards }: { deckId: string; cards: CardI
             onClick={() => {
               setQuery('')
               setActiveTag(null)
+              setFavoriteOnly(false)
+              setShowSuspended(true)
             }}
           >
             絞り込みをクリア

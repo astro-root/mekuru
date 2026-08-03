@@ -44,6 +44,8 @@ export async function hydrateDeckCache(deckId: string): Promise<void> {
     clozeText: c.cloze_text,
     note: c.note,
     position: c.position,
+    isFavorite: c.isFavorite,
+    isSuspended: c.isSuspended,
     fsrsState: stringifyFsrsCard(c.fsrsCard),
     updatedAt: now,
   }))
@@ -77,22 +79,29 @@ export type OfflineDueCard = {
   clozeText: string | null
   note: string | null
   position: number
+  isFavorite: boolean
   fsrsState: string
 }
 
 /**
  * 出題対象カードを取得する。未学習(state === New)カードは新規カード数上限を適用し、
  * 復習期限を迎えたカード(state !== New)は上限の対象外(通常通り全件出題)とする。
- * 上限がnull(未設定)の場合は従来通り無制限。
+ * 上限がnull(未設定)の場合は従来通り無制限。非表示(is_suspended)カードは常に対象外。
+ * お気に入りカードは、同じグループ内で先に出題されるよう優先する。
  */
 export async function getCachedDueCards(deckId: string): Promise<OfflineDueCard[]> {
-  const cards = await db.cards.where({ deckId }).toArray()
+  const cards = await db.cards.where({ deckId }).and((c) => !c.isSuspended).toArray()
   const now = new Date()
   const newCardsPerDay = await getCachedNewCardsLimit(deckId)
 
+  const byFavoriteThenPosition = (a: OfflineCard, b: OfflineCard) => {
+    if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1
+    return a.position - b.position
+  }
+
   const due = cards
     .filter((c) => isDue(parseFsrsState(c.fsrsState), now))
-    .sort((a, b) => a.position - b.position) // 既定は登録順(position昇順)
+    .sort(byFavoriteThenPosition)
 
   const reviewCards = due.filter((c) => parseFsrsState(c.fsrsState).state !== State.New)
   let newCards = due.filter((c) => parseFsrsState(c.fsrsState).state === State.New)
@@ -110,6 +119,7 @@ export async function getCachedDueCards(deckId: string): Promise<OfflineDueCard[
       clozeText: c.clozeText,
       note: c.note,
       position: c.position,
+      isFavorite: c.isFavorite,
       fsrsState: c.fsrsState,
     }))
 }
@@ -223,6 +233,7 @@ export async function getCachedCardsByIds(
       clozeText: c.clozeText,
       note: c.note,
       position: c.position,
+      isFavorite: c.isFavorite,
       fsrsState: c.fsrsState,
     })
   }

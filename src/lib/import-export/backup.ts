@@ -25,6 +25,8 @@ export const backupCardSchema = z.object({
   cloze_text: z.string().max(2000).nullable().optional(),
   note: z.string().max(2000).nullable().optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
+  is_favorite: z.boolean().optional(),
+  is_suspended: z.boolean().optional(),
   review: backupReviewSchema,
 })
 

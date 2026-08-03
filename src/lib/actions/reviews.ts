@@ -13,6 +13,8 @@ export type CardWithState = {
   cloze_text: string | null
   note: string | null
   position: number
+  isFavorite: boolean
+  isSuspended: boolean
   fsrsCard: Card
 }
 
@@ -90,6 +92,8 @@ export async function getDeckCardsWithState(deckId: string): Promise<CardWithSta
       cloze_text: card.cloze_text,
       note: card.note,
       position: card.position,
+      isFavorite: card.is_favorite,
+      isSuspended: card.is_suspended,
       fsrsCard: reviewRow ? rowToFsrsCard(reviewRow) : createEmptyCard(),
     }
   })
@@ -338,6 +342,7 @@ export async function getDueCountsByDeck(): Promise<Record<string, number>> {
   const { data: cards, error: cardsError } = await supabase
     .from('cards')
     .select('id, deck_id')
+    .eq('is_suspended', false)
     .order('position', { ascending: true })
   if (cardsError || !cards) return {}
 

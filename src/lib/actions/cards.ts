@@ -255,6 +255,22 @@ export async function createReversedCard(deckId: string, cardId: string) {
   return { success: true }
 }
 
+export async function toggleCardFavorite(deckId: string, cardId: string, next: boolean) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('cards').update({ is_favorite: next }).eq('id', cardId)
+  if (error) return { error: error.message }
+  revalidatePath(`/decks/${deckId}`)
+  return { success: true }
+}
+
+export async function toggleCardSuspended(deckId: string, cardId: string, next: boolean) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('cards').update({ is_suspended: next }).eq('id', cardId)
+  if (error) return { error: error.message }
+  revalidatePath(`/decks/${deckId}`)
+  return { success: true }
+}
+
 export async function deleteCard(deckId: string, cardId: string) {
   const supabase = await createClient()
   const { error } = await supabase.from('cards').delete().eq('id', cardId)
