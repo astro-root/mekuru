@@ -30,6 +30,7 @@ import {
   ListOrdered,
   Shuffle,
   Zap,
+  ALargeSmall,
 } from 'lucide-react'
 
 const RATING_CONFIG: {
@@ -131,7 +132,28 @@ export function ReviewSession({
   const [orderMode, setOrderMode] = useState<OrderMode>('sequential')
   const [quizRevealMode, setQuizRevealMode] = useState(false)
   const [revealedChars, setRevealedChars] = useState(0)
+  const [fontSize, setFontSize] = useState<'md' | 'lg' | 'xl'>('md')
+
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? window.localStorage.getItem('mekuru:reviewFontSize') : null
+    if (saved === 'md' || saved === 'lg' || saved === 'xl') {
+      const id = setTimeout(() => setFontSize(saved), 0)
+      return () => clearTimeout(id)
+    }
+  }, [])
+
+  const cycleFontSize = useCallback(() => {
+    setFontSize((prev) => {
+      const next = prev === 'md' ? 'lg' : prev === 'lg' ? 'xl' : 'md'
+      if (typeof window !== 'undefined') window.localStorage.setItem('mekuru:reviewFontSize', next)
+      return next
+    })
+  }, [])
+
+  const questionTextSizeClass =
+    fontSize === 'xl' ? 'text-3xl' : fontSize === 'lg' ? 'text-2xl' : 'text-xl'
   const [dragX, setDragX] = useState(0)
+  const [buzzInChars, setBuzzInChars] = useState<number | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement>(null)
@@ -264,6 +286,7 @@ export function ReviewSession({
       return next
     })
     setFlipped(false)
+    setBuzzInChars(null)
     setRating(null)
     getPendingReviewCount(deckId)
       .then(setPendingReviewCount)
@@ -302,6 +325,7 @@ export function ReviewSession({
         setIndex((i) => i + 1)
         setLiveIndex(nextLiveIndex)
         setFlipped(false)
+        setBuzzInChars(null)
         setRating(null)
         setDragX(0)
       }, 160)
@@ -310,13 +334,18 @@ export function ReviewSession({
   )
 
   const handleFlip = useCallback(() => {
-    setFlipped((f) => !f)
-  }, [])
+    setFlipped((f) => {
+      const next = !f
+      if (next && quizRevealMode) setBuzzInChars(revealedChars)
+      return next
+    })
+  }, [quizRevealMode, revealedChars])
 
   const goToPrevious = useCallback(() => {
     if (index <= 0) return
     setIndex((i) => i - 1)
     setFlipped(true)
+    setBuzzInChars(null)
   }, [index])
 
   const goToNext = useCallback(() => {
@@ -329,6 +358,7 @@ export function ReviewSession({
   const goToLive = useCallback(() => {
     setIndex(liveIndex)
     setFlipped(false)
+    setBuzzInChars(null)
   }, [liveIndex])
 
   const handlePointerDown = useCallback(
@@ -497,20 +527,18 @@ export function ReviewSession({
   const showGoodOverlay = dragX > 12
 
   return (
-    <div className="mx-auto max-w-xl space-y-5">
-      <ReviewStatsBar streak={displayedStreak} todayCount={displayedTodayCount} />
-
+    <div className="mx-auto max-w-xl space-y-3 overscroll-contain">
       {isOffline && (
-        <div className="animate-in fade-in flex items-center justify-center gap-2 rounded-md bg-muted py-2 text-sm text-muted-foreground">
-          <WifiOff className="h-4 w-4" />
-          オフラインです。学習結果は接続が戻り次第自動で送信されます。
+        <div className="animate-in fade-in flex items-center justify-center gap-1.5 rounded-md bg-muted py-1 text-xs text-muted-foreground">
+          <WifiOff className="h-3.5 w-3.5" />
+          オフライン(接続復帰後に自動送信)
         </div>
       )}
 
       {!isOffline && pendingReviewCount > 0 && (
-        <div className="animate-in fade-in flex items-center justify-center gap-2 rounded-md bg-muted py-2 text-sm text-muted-foreground">
+        <div className="animate-in fade-in flex items-center justify-center gap-1.5 rounded-md bg-muted py-1 text-xs text-muted-foreground">
           <span className="font-mono tabular-nums">{pendingReviewCount}</span>
-          <span>件の学習結果を送信中です...</span>
+          <span>件送信中...</span>
         </div>
       )}
 
@@ -571,6 +599,15 @@ export function ReviewSession({
           >
             <Zap className="h-3.5 w-3.5" />
           </button>
+          <button
+            type="button"
+            onClick={cycleFontSize}
+            aria-label="文字サイズを変更"
+            title={`文字サイズ: ${fontSize === 'md' ? '標準' : fontSize === 'lg' ? '大' : '特大'}`}
+            className="flex h-6 items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted"
+          >
+            <ALargeSmall className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
 
@@ -590,7 +627,7 @@ export function ReviewSession({
       )}
 
       <div
-        className="relative w-full cursor-pointer select-none touch-pan-y"
+        className="relative w-full cursor-pointer touch-none select-none"
         style={{ perspective: '1600px' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -616,7 +653,7 @@ export function ReviewSession({
             style={{ backfaceVisibility: 'hidden' }}
           >
             <span className="font-mono text-xs tracking-wide text-muted-foreground">Q</span>
-            <p className="font-heading text-xl font-medium leading-relaxed whitespace-pre-wrap">
+            <p className={`font-heading font-medium leading-relaxed whitespace-pre-wrap ${questionTextSizeClass}`}>
               {displayedQuestionText}
               {isRevealing && <span className="animate-pulse">▏</span>}
             </p>
@@ -648,7 +685,12 @@ export function ReviewSession({
             </div>
 
             <span className="font-mono text-xs tracking-wide text-primary">A</span>
-            <p className="font-heading text-xl font-medium leading-relaxed whitespace-pre-wrap">
+            {buzzInChars !== null && (
+              <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                {buzzInChars}文字目でめくった
+              </span>
+            )}
+            <p className={`font-heading font-medium leading-relaxed whitespace-pre-wrap ${questionTextSizeClass}`}>
               {answerText}
             </p>
             {current!.note && (

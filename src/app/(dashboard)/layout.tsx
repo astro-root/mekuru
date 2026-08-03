@@ -4,7 +4,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeaderShell } from '@/components/site-header-shell'
 import Link from 'next/link'
-import { History, Settings, Target } from 'lucide-react'
+import { History, Settings, Target, Search } from 'lucide-react'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -13,6 +13,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         href="/decks"
         right={
           <>
+            <Link href="/search">
+              <Button variant="ghost" size="sm">
+                <Search className="mr-1 h-4 w-4" />
+                検索
+              </Button>
+            </Link>
             <Link href="/struggling">
               <Button variant="ghost" size="sm">
                 <Target className="mr-1 h-4 w-4" />

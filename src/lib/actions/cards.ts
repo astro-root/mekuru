@@ -161,6 +161,54 @@ export async function updateCard(deckId: string, cardId: string, formData: FormD
   return { success: true }
 }
 
+export type CardSearchResult = {
+  id: string
+  deckId: string
+  deckName: string
+  front: string
+  back: string
+  note: string | null
+}
+
+// 複数デッキをまたいでカードの表・裏・コメント・穴埋め文を検索する(RLSにより自分のカードのみ対象)
+export async function searchCardsAcrossDecks(query: string, limit = 50): Promise<CardSearchResult[]> {
+  const q = query.trim()
+  if (q.length === 0) return []
+
+  const supabase = await createClient()
+  const escaped = q.replace(/[%_]/g, (m) => `\\${m}`)
+  const pattern = `%${escaped}%`
+
+  const { data, error } = await supabase
+    .from('cards')
+    .select('id, front, back, note, deck_id, decks(name)')
+    .or(`front.ilike.${pattern},back.ilike.${pattern},note.ilike.${pattern},cloze_text.ilike.${pattern}`)
+    .limit(limit)
+
+  if (error || !data) return []
+
+  type Row = {
+    id: string
+    front: string
+    back: string
+    note: string | null
+    deck_id: string
+    decks: { name: string } | { name: string }[] | null
+  }
+
+  return (data as unknown as Row[]).map((row) => {
+    const deck = Array.isArray(row.decks) ? row.decks[0] : row.decks
+    return {
+      id: row.id,
+      deckId: row.deck_id,
+      deckName: deck?.name ?? '(削除済みデッキ)',
+      front: row.front,
+      back: row.back,
+      note: row.note,
+    }
+  })
+}
+
 export async function createReversedCard(deckId: string, cardId: string) {
   const supabase = await createClient()
   const {
