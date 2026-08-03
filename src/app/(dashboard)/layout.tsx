@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeaderShell } from '@/components/site-header-shell'
+import { InstallPrompt } from '@/components/install-prompt'
 import Link from 'next/link'
 import { History, Settings, Target, Search } from 'lucide-react'
 
@@ -46,7 +47,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </>
         }
       />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+        <InstallPrompt />
+        {children}
+      </main>
       <SiteFooter />
     </div>
   )
