@@ -6,6 +6,7 @@ import { SiteHeaderShell } from '@/components/site-header-shell'
 import { InstallPrompt } from '@/components/install-prompt'
 import Link from 'next/link'
 import { History, Settings, Target, Search } from 'lucide-react'
+import { MobileNav } from '@/components/mobile-nav'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -14,36 +15,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         href="/decks"
         right={
           <>
-            <Link href="/search">
-              <Button variant="ghost" size="sm">
-                <Search className="mr-1 h-4 w-4" />
-                検索
-              </Button>
-            </Link>
-            <Link href="/struggling">
-              <Button variant="ghost" size="sm">
-                <Target className="mr-1 h-4 w-4" />
-                苦手
-              </Button>
-            </Link>
-            <Link href="/history">
-              <Button variant="ghost" size="sm">
-                <History className="mr-1 h-4 w-4" />
-                履歴
-              </Button>
-            </Link>
-            <Link href="/settings">
-              <Button variant="ghost" size="sm">
-                <Settings className="mr-1 h-4 w-4" />
-                設定
-              </Button>
-            </Link>
-            <ThemeToggle />
-            <form action={signOut}>
-              <Button type="submit" variant="ghost" size="sm">
-                ログアウト
-              </Button>
-            </form>
+            <div className="hidden items-center gap-1 sm:flex">
+              <Link href="/search">
+                <Button variant="ghost" size="sm">
+                  <Search className="mr-1 h-4 w-4" />
+                  検索
+                </Button>
+              </Link>
+              <Link href="/struggling">
+                <Button variant="ghost" size="sm">
+                  <Target className="mr-1 h-4 w-4" />
+                  苦手
+                </Button>
+              </Link>
+              <Link href="/history">
+                <Button variant="ghost" size="sm">
+                  <History className="mr-1 h-4 w-4" />
+                  履歴
+                </Button>
+              </Link>
+              <Link href="/settings">
+                <Button variant="ghost" size="sm">
+                  <Settings className="mr-1 h-4 w-4" />
+                  設定
+                </Button>
+              </Link>
+              <ThemeToggle />
+              <form action={signOut}>
+                <Button type="submit" variant="ghost" size="sm">
+                  ログアウト
+                </Button>
+              </form>
+            </div>
+
+            <MobileNav />
           </>
         }
       />

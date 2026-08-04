@@ -239,7 +239,7 @@ export function ImportDialog({ deckId }: { deckId: string }) {
           インポート
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="font-heading">インポート</DialogTitle>
         </DialogHeader>
