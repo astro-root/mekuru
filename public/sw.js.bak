@@ -3,19 +3,10 @@
 // ビルド時プリキャッシュ(マニフェスト方式)ではなく、実際にアクセスしたリソースを
 // その都度キャッシュしていく「ランタイムキャッシュ」方式を採用する。
 // これにより、一度でも開いたページ・アセットは次回オフラインでも表示できるようになる。
-//
-// ただし、認証必須ページ(ダッシュボード配下)はユーザー固有のデータを含むため、
-// 共有端末での前ユーザーのデータ残留を防ぐ目的でキャッシュ対象から除外する
-// (src/proxy.ts の保護対象パスと一致させること)。
 
-const CACHE_VERSION = 'mekuru-runtime-v2'
+const CACHE_VERSION = 'mekuru-runtime-v1'
 const OFFLINE_URL = '/offline.html'
 const PRECACHE_URLS = [OFFLINE_URL, '/manifest.json']
-const PROTECTED_PREFIXES = ['/decks', '/history', '/search', '/settings', '/struggling', '/review']
-
-function isProtectedPath(pathname) {
-  return PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
-}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -43,17 +34,6 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
-
-  // 認証必須パスはユーザー固有データを含むため、キャッシュの読み書きを一切行わず
-  // 常にネットワークへ流す（オフライン時はオフライン案内ページのみ表示）。
-  if (isProtectedPath(url.pathname)) {
-    if (request.mode === 'navigate') {
-      event.respondWith(fetch(request).catch(async () => (await caches.match(OFFLINE_URL))))
-    } else {
-      event.respondWith(fetch(request))
-    }
-    return
-  }
 
   // ページ遷移(ナビゲーション)は、まずネットワークを試し、
   // 失敗したら最後にキャッシュしたHTML、それも無ければオフライン案内ページを返す

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPageLayout, LegalSection } from '@/components/legal/legal-page-layout'
+import { ContactForm } from '@/components/contact/contact-form'
 
 export const metadata: Metadata = {
   title: "お問い合わせ",
@@ -9,9 +10,13 @@ export default function ContactPage() {
   return (
     <LegalPageLayout title="お問い合わせ" updatedAt="2026年8月1日">
       <p className="text-muted-foreground">
-        「めくる」に関するお問い合わせ・不具合報告・データに関するご相談は、以下の窓口までご連絡ください。
+        「めくる」に関するお問い合わせ・不具合報告・データに関するご相談は、以下のフォームまたはメールにてご連絡ください。
         通常、2〜3営業日以内にご返信します。
       </p>
+
+      <LegalSection heading="フォームからお問い合わせ">
+        <ContactForm />
+      </LegalSection>
 
       <LegalSection heading="運営者情報">
         <p className="font-mono text-xs">
