@@ -106,6 +106,8 @@ export async function syncCardTags(
 }
 
 // 複数カード分のタグをまとめて取得する(一覧表示用)
+// card_tagsテーブル未作成などで失敗しても、カード一覧全体をクラッシュさせないよう
+// ここでは例外を投げず空オブジェクトにフォールバックする(呼び出し元はgetCards)。
 export async function getCardTagsByCardIds(cardIds: string[]): Promise<Record<string, Tag[]>> {
   if (cardIds.length === 0) return {}
   const supabase = await createClient()
@@ -114,7 +116,10 @@ export async function getCardTagsByCardIds(cardIds: string[]): Promise<Record<st
     .select('card_id, tags(id, name)')
     .in('card_id', cardIds)
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    console.error('getCardTagsByCardIds failed:', error.message)
+    return {}
+  }
 
   const result: Record<string, Tag[]> = {}
   for (const row of (data ?? []) as unknown as { card_id: string; tags: Tag | Tag[] | null }[]) {
