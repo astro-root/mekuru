@@ -50,3 +50,11 @@ class MekuruDB extends Dexie {
 }
 
 export const db = new MekuruDB()
+
+// 共有端末でのログアウト後もカード内容・学習履歴がIndexedDBに残るのを防ぐため、
+// ログアウト・アカウント削除時に必ず呼び出すこと。
+export async function clearOfflineData() {
+  await db.cards.clear()
+  await db.reviewQueue.clear()
+  await db.deckSettings.clear()
+}

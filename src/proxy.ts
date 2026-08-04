@@ -30,7 +30,8 @@ export async function proxy(request: NextRequest) {
   const isAuthRoute =
     request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/forgot-password')
-  const isDashboardRoute = request.nextUrl.pathname.startsWith('/decks')
+  const protectedPrefixes = ['/decks', '/history', '/search', '/settings', '/struggling', '/review']
+  const isDashboardRoute = protectedPrefixes.some((p) => request.nextUrl.pathname.startsWith(p))
   // パスワード再設定リンクからの遷移時はSupabaseのrecoveryセッションにより
   // user が入るため、isAuthRoute のログイン中リダイレクト対象からは除外する。
   const isResetPasswordRoute = request.nextUrl.pathname.startsWith('/reset-password')

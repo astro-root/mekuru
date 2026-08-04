@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { signOut } from '@/lib/actions/auth'
+import { LogoutButton } from '@/components/logout-button'
 
 export function MobileNav() {
   return (
@@ -47,7 +47,9 @@ export function MobileNav() {
               設定
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => signOut()}>ログアウト</DropdownMenuItem>
+          <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+            <LogoutButton variant="ghost" className="w-full justify-start" />
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

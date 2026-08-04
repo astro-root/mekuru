@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { deleteAccount } from '@/lib/actions/auth'
+import { clearOfflineData } from '@/lib/offline/db'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -30,7 +31,9 @@ export function DeleteAccountSection() {
       const result = await deleteAccount()
       if (result?.error) {
         setError(result.error)
+        return
       }
+      await clearOfflineData()
     })
   }
 

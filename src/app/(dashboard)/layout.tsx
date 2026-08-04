@@ -1,4 +1,4 @@
-import { signOut } from '@/lib/actions/auth'
+import { LogoutButton } from '@/components/logout-button'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { SiteFooter } from '@/components/site-footer'
@@ -41,11 +41,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </Button>
               </Link>
               <ThemeToggle />
-              <form action={signOut}>
-                <Button type="submit" variant="ghost" size="sm">
-                  ログアウト
-                </Button>
-              </form>
+              <LogoutButton />
             </div>
 
             <MobileNav />
