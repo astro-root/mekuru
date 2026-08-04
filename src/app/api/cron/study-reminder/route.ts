@@ -4,11 +4,6 @@ import { hasDueCardsForUser } from '@/lib/reminders/due-check'
 
 export const maxDuration = 60
 
-function currentJstHour(): number {
-  const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
-  return jstNow.getUTCHours()
-}
-
 function todayJstDateStr(): string {
   const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
   return jstNow.toISOString().slice(0, 10)
@@ -50,8 +45,10 @@ async function sendReminderEmail(to: string): Promise<{ ok: boolean; error?: str
 }
 
 /**
- * Vercel Cronから毎時(0分)呼ばれる想定。この時点のJST時刻と一致するremind_hour_jstを持ち、
- * まだ今日送信していない(last_sent_date !== 今日)ユーザーだけを対象にする。
+ * Vercel Cronから1日1回(JST 20:00固定)呼ばれる想定。
+ * Hobbyプランのcronは1日1回までのため、remind_hour_jstによる時刻の厳密な一致判定は行わず、
+ * 有効化されていて今日まだ送信していないユーザー全員を対象にする。
+ * (remind_hour_jstはPlanをアップグレードして毎時実行に戻した場合のために設定値として保持している)
  * 認証はCRON_SECRETによるBearerトークン照合のみ(Vercel Cronの標準的な保護方式)。
  */
 export async function GET(request: Request) {
@@ -62,14 +59,12 @@ export async function GET(request: Request) {
   }
 
   const admin = createAdminClient()
-  const hour = currentJstHour()
   const today = todayJstDateStr()
 
   const { data: targets, error } = await admin
     .from('reminder_settings')
     .select('user_id')
     .eq('enabled', true)
-    .eq('remind_hour_jst', hour)
     .or(`last_sent_date.is.null,last_sent_date.neq.${today}`)
 
   if (error) {
@@ -110,5 +105,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ hour, targetCount: targets?.length ?? 0, sent, skippedNoDue, failed })
+  return NextResponse.json({ targetCount: targets?.length ?? 0, sent, skippedNoDue, failed })
 }
