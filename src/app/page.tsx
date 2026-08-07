@@ -18,13 +18,31 @@ import {
   ListPlus,
   BookOpen,
   BarChart3,
+  Zap,
+  Bell,
+  Target,
 } from 'lucide-react'
 
 const FEATURES = [
   {
+    icon: Zap,
+    title: '競技クイズの早押し練習ができる',
+    desc: '問題文を少しずつ表示する「早押し表示」モードを搭載。競技クイズ勢の実戦練習に、他の暗記アプリにはない使い方です。',
+  },
+  {
     icon: BrainCircuit,
-    title: 'FSRSによる間隔反復',
-    desc: '最新のFSRSアルゴリズムが、忘れかけたタイミングで最適に復習カードを出します。',
+    title: '今日、覚えるべき一枚だけが出てくる',
+    desc: 'FSRSアルゴリズムが、忘れかけたタイミングで最適に復習カードを出します。無駄な復習をしなくて済みます。',
+  },
+  {
+    icon: Bell,
+    title: '通知で復習を思い出させる',
+    desc: '復習のタイミングをリマインダーで通知。「やらなきゃ」を忘れさせません。',
+  },
+  {
+    icon: Target,
+    title: '苦手なカードを可視化',
+    desc: '間違えやすいカードを自動でまとめて表示。弱点だけを集中的に潰せます。',
   },
   {
     icon: WifiOff,
@@ -74,7 +92,7 @@ const STEPS = [
 const FAQS = [
   {
     q: 'FSRSとは何ですか？',
-    a: 'Free Spaced Repetition Scheduler の略で、記憶の忘却曲線を統計的にモデル化した間隔反復アルゴリズムです。カードごとの評価結果から、次に復習すべき最適なタイミングを計算します。',
+    a: 'Ankiでも採用されている、最新の間隔反復アルゴリズムです。「思い出せたか」の評価をもとに、忘れかけた頃を見計らって次の復習タイミングを自動で決めてくれます。',
   },
   {
     q: 'オフラインでも使えますか？',
@@ -132,21 +150,21 @@ export default function LandingPage() {
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 text-center md:text-left">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
               <Sparkles className="h-3.5 w-3.5" />
-              競技クイズ・受験対策にも
+              競技クイズの早押し練習・受験の一問一答に
             </span>
             <h1 className="mt-4 font-heading text-3xl font-bold leading-snug md:text-4xl">
-              めくって、覚える。
+              その一枚が、
               <br />
-              続けられる暗記プラットフォーム。
+              試験に出る一枚になる。
             </h1>
             <p className="mt-4 text-muted-foreground">
-              間隔反復(FSRS)で「今、思い出すべきカード」だけを出題。
-              単語帳をめくる感覚そのままに、記憶の定着を積み上げます。
+              覚えたはずが、また忘れる。その繰り返しをやめる暗記アプリ。
+              今日思い出すべき一枚だけを出題し、無駄な復習をなくします。
             </p>
             <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row md:justify-start">
               <Link href="/login">
                 <Button size="lg" className="w-full transition-transform hover:-translate-y-0.5 sm:w-auto">
-                  無料で始める
+                  30秒で最初のデッキを作る
                   <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
               </Link>
@@ -233,10 +251,12 @@ export default function LandingPage() {
         <Reveal>
           <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-4 py-14 text-center">
             <h2 className="font-heading text-2xl font-bold">今日から、めくり始めよう。</h2>
-            <p className="text-sm text-muted-foreground">登録は数十秒。最初のデッキはすぐに作れます。</p>
+            <p className="text-sm text-muted-foreground">
+              今作ったデッキは、明日ちゃんと出題されます。まずは10枚、試してみてください。
+            </p>
             <Link href="/login">
               <Button size="lg" className="transition-transform hover:-translate-y-0.5">
-                無料で始める
+                30秒で最初のデッキを作る
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
             </Link>
