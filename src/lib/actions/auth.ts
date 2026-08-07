@@ -4,10 +4,21 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit'
+
+const RATE_LIMIT_MESSAGE =
+  '試行回数が上限に達しました。しばらく時間をおいてから再度お試しください。'
 
 export async function signInWithEmail(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+
+  const identifier = getClientIdentifier(await headers(), email)
+  const rateLimit = await checkRateLimit('login', identifier)
+  if (!rateLimit.allowed) {
+    return { error: RATE_LIMIT_MESSAGE }
+  }
+
   const supabase = await createClient()
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -23,9 +34,17 @@ export async function signInWithEmail(formData: FormData) {
 export async function signUpWithEmail(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+
+  const headersList = await headers()
+  const identifier = getClientIdentifier(headersList, email)
+  const rateLimit = await checkRateLimit('signup', identifier)
+  if (!rateLimit.allowed) {
+    return { error: RATE_LIMIT_MESSAGE }
+  }
+
   const supabase = await createClient()
 
-  const origin = (await headers()).get('origin')
+  const origin = headersList.get('origin')
   const { error } = await supabase.auth.signUp({
     email,
     password,
@@ -39,8 +58,17 @@ export async function signUpWithEmail(formData: FormData) {
 
 export async function requestPasswordReset(formData: FormData) {
   const email = formData.get('email') as string
+
+  const headersList = await headers()
+  const identifier = getClientIdentifier(headersList, email)
+  const rateLimit = await checkRateLimit('password_reset', identifier)
+  if (!rateLimit.allowed) {
+    // メール存在の有無を応答から推測できないよう、成功時と同じ文言を返す(元の設計を踏襲)
+    return { success: true }
+  }
+
   const supabase = await createClient()
-  const origin = (await headers()).get('origin')
+  const origin = headersList.get('origin')
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/auth/callback?next=/reset-password`,

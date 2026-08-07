@@ -30,7 +30,11 @@ export async function proxy(request: NextRequest) {
   const isAuthRoute =
     request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/forgot-password')
-  const isDashboardRoute = request.nextUrl.pathname.startsWith('/decks')
+  // sw.js の PROTECTED_PREFIXES と一致させること(キャッシュ除外パスと未ログイン保護パスの整合性維持)
+  const PROTECTED_PREFIXES = ['/decks', '/history', '/search', '/settings', '/struggling', '/review']
+  const isDashboardRoute = PROTECTED_PREFIXES.some((prefix) =>
+    request.nextUrl.pathname.startsWith(prefix)
+  )
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
   // パスワード再設定リンクからの遷移時はSupabaseのrecoveryセッションにより
   // user が入るため、isAuthRoute のログイン中リダイレクト対象からは除外する。

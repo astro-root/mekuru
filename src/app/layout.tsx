@@ -28,6 +28,22 @@ export const metadata: Metadata = {
     template: "%s | めくる",
   },
   description: "間隔反復(FSRS)でめくりながら覚える暗記プラットフォーム。オフライン対応、インポート/エクスポート対応。",
+  metadataBase: new URL("https://mekuru.astro-root.com"),
+  openGraph: {
+    type: "website",
+    locale: "ja_JP",
+    url: "https://mekuru.astro-root.com",
+    siteName: "めくる",
+    title: "めくる — 毎日めくる、記憶の相棒。",
+    description: "間隔反復(FSRS)でめくりながら覚える暗記プラットフォーム。オフライン対応、インポート/エクスポート対応。",
+    images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: "めくる" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "めくる — 毎日めくる、記憶の相棒。",
+    description: "間隔反復(FSRS)でめくりながら覚える暗記プラットフォーム。オフライン対応、インポート/エクスポート対応。",
+    images: ["/icons/icon-512.png"],
+  },
   manifest: "/manifest.json",
   icons: {
     icon: [
