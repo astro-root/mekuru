@@ -9,7 +9,7 @@ export function SiteHeaderShell({
 }) {
   return (
     <header className="border-b bg-card">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
         <Link href={href} className="flex items-center gap-2 group">
           <svg
             width="22"
