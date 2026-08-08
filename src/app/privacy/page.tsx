@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPageLayout title="プライバシーポリシー" updatedAt="2026年7月31日">
+    <LegalPageLayout title="プライバシーポリシー" updatedAt="2026年8月8日">
       <p className="text-muted-foreground">
         「めくる」(以下「本サービス」といいます)は、利用者の個人情報を適切に保護することを重要な責務と考え、
         以下のとおりプライバシーポリシー(以下「本ポリシー」といいます)を定めます。
@@ -37,13 +37,28 @@ export default function PrivacyPage() {
 
       <LegalSection heading="第3条(第三者への提供・委託)">
         <p>
-          本サービスは、認証基盤・データベースとして Supabase を、Googleアカウントでのログイン機能として
-          Google の認証サービスを利用しています。これらのサービス提供事業者には、サービス提供に必要な範囲で
-          情報を取り扱わせていますが、法令に基づく場合を除き、本人の同意なく第三者に個人情報を提供することはありません。
+          本サービスは、認証基盤・データベースとして Supabase を、ホスティング基盤として Vercel を、
+          Googleアカウントでのログイン機能として Google の認証サービスを利用しています。これらのサービス提供事業者には、
+          サービス提供に必要な範囲で情報を取り扱わせていますが、法令に基づく場合を除き、本人の同意なく第三者に
+          個人情報を提供することはありません。
+        </p>
+        <p>
+          上記のサービス提供事業者のサーバーは日本国外(主に米国)に所在しており、本サービスの利用に伴い、
+          利用者の個人情報が当該国へ移転される場合があります。移転先の国における個人情報保護制度の水準は、
+          必ずしも日本の制度と同一ではありませんが、各事業者は国際的なセキュリティ基準に基づく管理措置を
+          講じています。本サービスの利用をもって、この点について同意いただいたものとします。
         </p>
       </LegalSection>
 
-      <LegalSection heading="第4条(Cookie等の利用)">
+      <LegalSection heading="第4条(開示等の請求方法)">
+        <p>
+          第7条に定める開示・訂正・追加・削除・利用停止等の請求は、下記お問い合わせ窓口宛のメールにて受け付けます。
+          本人確認のため、登録済みのメールアドレスからご連絡いただくとともに、必要に応じて追加の本人確認情報の
+          提供をお願いする場合があります。手数料は無料です。合理的な期間内に対応のうえ、結果をご連絡します。
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="第5条(Cookie等の利用)">
         <p>
           本サービスは、ログイン状態の維持や利用状況の把握のためにCookieおよび類似の技術を利用することがあります。
           また、オフラインでも復習を継続できるよう、ブラウザのローカルストレージ(IndexedDB)にカード情報や
@@ -51,14 +66,14 @@ export default function PrivacyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="第5条(安全管理措置)">
+      <LegalSection heading="第6条(安全管理措置)">
         <p>
           本サービスは、取得した個人情報の漏えい、滅失またはき損の防止その他個人情報の安全管理のために、
           必要かつ適切な措置を講じます。
         </p>
       </LegalSection>
 
-      <LegalSection heading="第6条(利用者の権利)">
+      <LegalSection heading="第7条(利用者の権利)">
         <p>
           利用者は、本サービスが保有する自己の個人情報について、開示、訂正、追加、削除、利用停止を求めることができます。
           ご希望の場合は、下記のお問い合わせ先までご連絡ください。アカウントを削除した場合、作成したデッキ・カードおよび
@@ -66,20 +81,20 @@ export default function PrivacyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="第7条(未成年者の利用)">
+      <LegalSection heading="第8条(未成年者の利用)">
         <p>
           未成年者が本サービスを利用する場合は、あらかじめ保護者等の同意を得たうえでご利用ください。
         </p>
       </LegalSection>
 
-      <LegalSection heading="第8条(本ポリシーの変更)">
+      <LegalSection heading="第9条(本ポリシーの変更)">
         <p>
           本サービスは、法令の変更やサービス内容の変更等に応じて、本ポリシーを変更することがあります。
           変更後の内容は、本ページに掲載した時点から効力を生じるものとします。
         </p>
       </LegalSection>
 
-      <LegalSection heading="第9条(お問い合わせ窓口)">
+      <LegalSection heading="第10条(お問い合わせ窓口)">
         <p>本ポリシーに関するお問い合わせは、以下の窓口までご連絡ください。</p>
         <p className="font-mono text-xs">運営者: るーと<br />お問い合わせ先: contact@astro-root.com</p>
       </LegalSection>

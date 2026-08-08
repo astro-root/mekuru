@@ -38,15 +38,14 @@ export default async function ReviewPage({
   const stats = await getReviewStats()
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       <Link
         href={`/decks/${deckId}`}
-        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="mr-1 h-4 w-4" />
-        {deck.name} に戻る
+        <ArrowLeft className="h-4 w-4" />
+        {deck.name}
       </Link>
-      <h1 className="font-heading text-xl font-bold">{deck.name} — 学習</h1>
       <ReviewSession deckId={deckId} initialStats={stats} />
     </div>
   )
