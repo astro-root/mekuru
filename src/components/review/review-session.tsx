@@ -43,7 +43,8 @@ const RATING_CONFIG: {
     key: 'again',
     label: 'わからなかった',
     shortcut: '←',
-    className: 'border-[var(--destructive)] text-[var(--destructive)] hover:bg-[var(--destructive)]/10',
+    className:
+      'border-[var(--destructive)]/50 bg-[var(--destructive)]/10 text-[var(--destructive)] hover:bg-[var(--destructive)]/20',
   },
   {
     key: 'good',
@@ -727,7 +728,7 @@ export function ReviewSession({
               size="lg"
               disabled={rating !== null}
               onClick={() => handleRate(r.key)}
-              className={`flex-col gap-0.5 border py-3 ${r.className} ${
+              className={`h-auto flex-col gap-0.5 border py-3 ${r.className} ${
                 rating === r.key ? 'scale-95' : ''
               } transition-transform`}
             >
