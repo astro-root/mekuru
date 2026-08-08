@@ -5,7 +5,7 @@ import { SiteFooter } from '@/components/site-footer'
 import { SiteHeaderShell } from '@/components/site-header-shell'
 import { InstallPrompt } from '@/components/install-prompt'
 import Link from 'next/link'
-import { History, Settings, Target, Search } from 'lucide-react'
+import { History, Settings, Target, Search, Compass } from 'lucide-react'
 import { MobileNav } from '@/components/mobile-nav'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -20,6 +20,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Button variant="ghost" size="sm">
                   <Search className="mr-1 h-4 w-4" />
                   検索
+                </Button>
+              </Link>
+              <Link href="/explore">
+                <Button variant="ghost" size="sm">
+                  <Compass className="mr-1 h-4 w-4" />
+                  みんなのデッキ
                 </Button>
               </Link>
               <Link href="/struggling">

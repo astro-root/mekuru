@@ -10,6 +10,7 @@ type Deck = {
   genre: string | null
   difficulty: number
   new_cards_per_day: number | null
+  is_public?: boolean
 }
 
 export function DeckCard({ deck, dueCount = 0 }: { deck: Deck; dueCount?: number }) {
@@ -46,6 +47,7 @@ export function DeckCard({ deck, dueCount = 0 }: { deck: Deck; dueCount?: number
           {dueCount > 0 && (
             <Badge className="font-mono tabular-nums">今日 {dueCount}枚</Badge>
           )}
+          {deck.is_public && <Badge variant="secondary">公開中</Badge>}
           {deck.genre && <Badge variant="secondary">{deck.genre}</Badge>}
           <div className="flex items-center gap-1" title={`難易度 ${deck.difficulty} / 5`}>
             {Array.from({ length: 5 }).map((_, i) => (

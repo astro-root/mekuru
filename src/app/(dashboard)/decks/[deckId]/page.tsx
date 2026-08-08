@@ -3,12 +3,14 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getDeck } from '@/lib/actions/decks'
 import { getCards } from '@/lib/actions/cards'
+import { getStudyPace } from '@/lib/actions/exam-goals'
 import { Button } from '@/components/ui/button'
 import { CardFormDialog } from '@/components/deck/card-form-dialog'
 import { ArrowLeft, Plus, BookOpen } from 'lucide-react'
 import { ExportMenu } from '@/components/import-export/export-menu'
 import { ImportDialog } from '@/components/import-export/import-dialog'
 import { CardListSearch, EmptyDeckState } from '@/components/deck/card-list-search'
+import { ExamGoalCard } from '@/components/deck/exam-goal-card'
 
 export async function generateMetadata({
   params,
@@ -40,6 +42,7 @@ export default async function DeckDetailPage({
   if (!deck) notFound()
 
   const cards = await getCards(deckId)
+  const pace = await getStudyPace(deckId)
 
   return (
     <div className="space-y-6">
@@ -78,6 +81,8 @@ export default async function DeckDetailPage({
           />
         </div>
       </div>
+
+      <ExamGoalCard deckId={deckId} pace={pace} />
 
       {cards.length === 0 ? (
         <EmptyDeckState deckId={deckId} />

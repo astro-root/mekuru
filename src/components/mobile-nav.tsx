@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Menu, Search, Target, History, Settings } from 'lucide-react'
+import { Menu, Search, Target, History, Settings, Compass } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import {
@@ -27,6 +27,12 @@ export function MobileNav() {
             <Link href="/search">
               <Search className="mr-1 h-4 w-4" />
               検索
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/explore">
+              <Compass className="mr-1 h-4 w-4" />
+              みんなのデッキ
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>

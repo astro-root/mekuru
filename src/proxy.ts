@@ -31,7 +31,7 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/forgot-password')
   // sw.js の PROTECTED_PREFIXES と一致させること(キャッシュ除外パスと未ログイン保護パスの整合性維持)
-  const PROTECTED_PREFIXES = ['/decks', '/history', '/search', '/settings', '/struggling', '/review']
+  const PROTECTED_PREFIXES = ['/decks', '/history', '/search', '/settings', '/struggling', '/review', '/explore']
   const isDashboardRoute = PROTECTED_PREFIXES.some((prefix) =>
     request.nextUrl.pathname.startsWith(prefix)
   )

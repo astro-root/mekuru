@@ -1,17 +1,22 @@
 import type { Metadata } from "next";
 import { getDecks } from '@/lib/actions/decks'
 import { getDueCountsByDeck } from '@/lib/actions/reviews'
+import { getReviewStats } from '@/lib/actions/reviews'
 import { Button } from '@/components/ui/button'
 import { DeckFormDialog } from '@/components/deck/deck-form-dialog'
 import { DeckList } from '@/components/deck/deck-list'
-import { Plus, Layers } from 'lucide-react'
+import { Plus, Layers, Flame } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: "デッキ一覧",
 }
 
 export default async function DecksPage() {
-  const [decks, dueCounts] = await Promise.all([getDecks(), getDueCountsByDeck()])
+  const [decks, dueCounts, stats] = await Promise.all([
+    getDecks(),
+    getDueCountsByDeck(),
+    getReviewStats(),
+  ])
   const totalDue = Object.values(dueCounts).reduce((sum, n) => sum + n, 0)
 
   return (
@@ -22,11 +27,19 @@ export default async function DecksPage() {
           <p className="mt-0.5 text-sm text-muted-foreground">
             {decks.length > 0 ? `${decks.length} 個のデッキ` : '今日から始めましょう'}
           </p>
-          {totalDue > 0 && (
-            <p className="mt-1 font-mono text-sm font-bold text-primary">
-              今日の復習: {totalDue}枚
-            </p>
-          )}
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {totalDue > 0 && (
+              <p className="font-mono text-sm font-bold text-primary">
+                今日の復習: {totalDue}枚
+              </p>
+            )}
+            {stats.streak > 0 && (
+              <p className="flex items-center gap-1 font-mono text-sm font-bold text-accent-foreground">
+                <Flame className="h-3.5 w-3.5" strokeWidth={2} />
+                {stats.streak}日連続
+              </p>
+            )}
+          </div>
         </div>
         <DeckFormDialog
           trigger={

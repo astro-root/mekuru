@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/decks', '/history', '/search', '/settings', '/struggling', '/review', '/admin'],
+      disallow: ['/decks', '/history', '/search', '/settings', '/struggling', '/review', '/explore', '/admin'],
     },
     sitemap: 'https://mekuru.astro-root.com/sitemap.xml',
   }

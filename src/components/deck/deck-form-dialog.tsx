@@ -24,6 +24,7 @@ type Deck = {
   genre: string | null
   difficulty: number
   new_cards_per_day: number | null
+  is_public?: boolean
 }
 
 export function DeckFormDialog({
@@ -39,12 +40,14 @@ export function DeckFormDialog({
   const [newCardsPerDay, setNewCardsPerDay] = useState(
     deck?.new_cards_per_day != null ? String(deck.new_cards_per_day) : ''
   )
+  const [isPublic, setIsPublic] = useState(deck?.is_public ?? false)
   const router = useRouter()
   const isEdit = !!deck
 
   async function handleSubmit(formData: FormData) {
     formData.set('difficulty', String(difficulty))
     formData.set('newCardsPerDay', newCardsPerDay.trim())
+    formData.set('isPublic', String(isPublic))
     setIsPending(true)
     const result = isEdit
       ? await updateDeck(deck.id, formData)
@@ -68,6 +71,7 @@ export function DeckFormDialog({
         if (next) {
           setDifficulty(deck?.difficulty ?? 1)
           setNewCardsPerDay(deck?.new_cards_per_day != null ? String(deck.new_cards_per_day) : '')
+          setIsPublic(deck?.is_public ?? false)
         }
       }}
     >
@@ -142,6 +146,22 @@ export function DeckFormDialog({
             <p className="text-xs text-muted-foreground">
               1日に新しく出題する未学習カードの上限数です。空欄の場合は上限を設けません。
             </p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border p-3">
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+              />
+              <span>
+                <span className="block text-sm font-medium">このデッキを公開する</span>
+                <span className="block text-xs text-muted-foreground">
+                  公開すると、他のユーザーが「みんなのデッキ」から見つけて複製できるようになります。
+                </span>
+              </span>
+            </label>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isPending}>

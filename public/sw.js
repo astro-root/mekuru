@@ -11,7 +11,7 @@
 const CACHE_VERSION = 'mekuru-runtime-v2'
 const OFFLINE_URL = '/offline.html'
 const PRECACHE_URLS = [OFFLINE_URL, '/manifest.json']
-const PROTECTED_PREFIXES = ['/decks', '/history', '/search', '/settings', '/struggling', '/review']
+const PROTECTED_PREFIXES = ['/decks', '/history', '/search', '/settings', '/struggling', '/review', '/explore']
 
 function isProtectedPath(pathname) {
   return PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))

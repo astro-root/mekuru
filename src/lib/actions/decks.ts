@@ -12,6 +12,7 @@ const deckSchema = z.object({
   difficulty: z.coerce.number().int().min(1).max(5).default(1),
   tags: z.string().max(500).optional(),
   newCardsPerDay: z.coerce.number().int().min(0).max(9999).nullable().optional(),
+  isPublic: z.boolean().default(false),
 })
 
 type DeckRow = {
@@ -107,18 +108,20 @@ export async function createDeck(formData: FormData) {
     // 空文字は「上限なし」を意味するのでnullに変換する。未送信(null)の場合はundefinedのままにし、
     // z.object().optional()によりデフォルト値の扱いに委ねる。
     newCardsPerDay: rawNewCardsPerDay === '' ? null : rawNewCardsPerDay ?? undefined,
+    isPublic: formData.get('isPublic') === 'true',
   })
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
   }
 
-  const { tags, newCardsPerDay, ...deckFields } = parsed.data
+  const { tags, newCardsPerDay, isPublic, ...deckFields } = parsed.data
 
   const { data: deck, error } = await supabase
     .from('decks')
     .insert({
       owner_id: user.id,
       ...deckFields,
+      is_public: isPublic,
       new_cards_per_day: newCardsPerDay ?? null,
     })
     .select('id')
@@ -151,17 +154,19 @@ export async function updateDeck(deckId: string, formData: FormData) {
     difficulty: formData.get('difficulty') || 1,
     tags: formData.get('tags') || undefined,
     newCardsPerDay: rawNewCardsPerDay === '' ? null : rawNewCardsPerDay ?? undefined,
+    isPublic: formData.get('isPublic') === 'true',
   })
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
   }
 
-  const { tags, newCardsPerDay, ...deckFields } = parsed.data
+  const { tags, newCardsPerDay, isPublic, ...deckFields } = parsed.data
 
   const { error } = await supabase
     .from('decks')
     .update({
       ...deckFields,
+      is_public: isPublic,
       new_cards_per_day: newCardsPerDay ?? null,
       updated_at: new Date().toISOString(),
     })
@@ -203,4 +208,119 @@ export async function deleteDeck(deckId: string) {
 
   revalidatePath('/decks')
   return { success: true }
+}
+
+export type PublicDeck = {
+  id: string
+  name: string
+  description: string | null
+  genre: string | null
+  difficulty: number
+  cardCount: number
+}
+
+/**
+ * 公開デッキ(is_public = true)を一覧取得する。
+ * decks_public_read ポリシーにより、所有者以外でもSELECTできる。
+ */
+export async function getPublicDecks(query?: string): Promise<PublicDeck[]> {
+  const supabase = await createClient()
+  let q = supabase
+    .from('decks')
+    .select('id, name, description, genre, difficulty, cards(count)')
+    .eq('is_public', true)
+    .order('updated_at', { ascending: false })
+    .limit(60)
+
+  if (query?.trim()) {
+    q = q.ilike('name', `%${query.trim()}%`)
+  }
+
+  const { data, error } = await q
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((row) => {
+    const r = row as unknown as {
+      id: string
+      name: string
+      description: string | null
+      genre: string | null
+      difficulty: number
+      cards: { count: number }[] | null
+    }
+    return {
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      genre: r.genre,
+      difficulty: r.difficulty,
+      cardCount: r.cards?.[0]?.count ?? 0,
+    }
+  })
+}
+
+export async function getPublicDeckWithCards(deckId: string) {
+  const supabase = await createClient()
+  const { data: deck, error: deckError } = await supabase
+    .from('decks')
+    .select('id, name, description, genre, difficulty')
+    .eq('id', deckId)
+    .eq('is_public', true)
+    .single()
+  if (deckError || !deck) return null
+
+  const { data: cards, error: cardsError } = await supabase
+    .from('cards')
+    .select('id, front, back, card_type, cloze_text')
+    .eq('deck_id', deckId)
+    .order('position', { ascending: true })
+  if (cardsError) throw new Error(cardsError.message)
+
+  return { deck, cards: cards ?? [] }
+}
+
+/**
+ * 公開デッキを、ログイン中ユーザー自身のデッキとして複製する。
+ * カード本体(表/裏/穴埋め)のみコピーし、学習履歴(card_reviews)はコピーしない
+ * (=複製した人は新規カードとして自分のペースで学習を始める)。
+ */
+export async function cloneDeck(sourceDeckId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: '認証されていません' }
+
+  const source = await getPublicDeckWithCards(sourceDeckId)
+  if (!source) return { error: '公開デッキが見つかりませんでした' }
+
+  const { data: newDeck, error: deckError } = await supabase
+    .from('decks')
+    .insert({
+      owner_id: user.id,
+      name: source.deck.name,
+      description: source.deck.description,
+      genre: source.deck.genre,
+      difficulty: source.deck.difficulty,
+      is_public: false,
+    })
+    .select('id')
+    .single()
+  if (deckError || !newDeck) return { error: deckError?.message ?? 'デッキの複製に失敗しました' }
+
+  if (source.cards.length > 0) {
+    const rows = source.cards.map((c, i) => ({
+      deck_id: newDeck.id,
+      front: c.front,
+      back: c.back,
+      card_type: c.card_type,
+      cloze_text: c.cloze_text,
+      position: i,
+    }))
+    const { error: cardsError } = await supabase.from('cards').insert(rows)
+    if (cardsError) return { error: cardsError.message }
+  }
+
+  revalidatePath('/decks')
+  return { success: true, deckId: newDeck.id }
 }

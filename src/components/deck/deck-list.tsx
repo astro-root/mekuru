@@ -21,6 +21,7 @@ type Deck = {
   difficulty: number
   new_cards_per_day: number | null
   updated_at: string
+  is_public?: boolean
 }
 
 type SortKey = 'updated_desc' | 'name_asc' | 'difficulty_desc' | 'difficulty_asc'

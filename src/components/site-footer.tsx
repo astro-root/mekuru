@@ -11,6 +11,9 @@ export function SiteFooter({ maxWidth = 'max-w-5xl' }: { maxWidth?: string }) {
           <Link href="/contact" className="transition-colors hover:text-foreground">
             お問い合わせ
           </Link>
+          <Link href="/changelog" className="transition-colors hover:text-foreground">
+            更新履歴
+          </Link>
           <Link href="/terms" className="transition-colors hover:text-foreground">
             利用規約
           </Link>

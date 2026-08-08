@@ -109,8 +109,27 @@ const FAQS = [
 ]
 
 export default function LandingPage() {
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQS.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.a,
+      },
+    })),
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
+      {/* FAQリッチリザルト獲得のための構造化データ */}
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <SiteHeaderShell
         right={
           <>
