@@ -37,12 +37,14 @@ const RATING_CONFIG: {
   key: ReviewRating
   label: string
   shortcut: string
+  variant: 'outline' | 'default'
   className: string
 }[] = [
   {
     key: 'again',
     label: 'わからなかった',
     shortcut: '←',
+    variant: 'outline',
     className:
       'border-[var(--destructive)]/50 bg-[var(--destructive)]/10 text-[var(--destructive)] hover:bg-[var(--destructive)]/20',
   },
@@ -50,7 +52,8 @@ const RATING_CONFIG: {
     key: 'good',
     label: 'わかった',
     shortcut: '→',
-    className: 'bg-primary text-primary-foreground border-transparent hover:bg-primary/90',
+    variant: 'default',
+    className: '',
   },
 ]
 
@@ -724,7 +727,7 @@ export function ReviewSession({
           {RATING_CONFIG.map((r) => (
             <Button
               key={r.key}
-              variant="outline"
+              variant={r.variant}
               size="lg"
               disabled={rating !== null}
               onClick={() => handleRate(r.key)}
