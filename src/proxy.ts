@@ -5,9 +5,16 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_ROOT_ACCOUNT_URL!,
+    process.env.NEXT_PUBLIC_ROOT_ACCOUNT_ANON_KEY!,
     {
+      db: { schema: 'mekuru' },
+      cookieOptions: {
+        domain: process.env.NEXT_PUBLIC_ROOT_ACCOUNT_COOKIE_DOMAIN,
+        path: '/',
+        sameSite: 'lax',
+        secure: true,
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll()
@@ -30,11 +37,7 @@ export async function proxy(request: NextRequest) {
   const isAuthRoute =
     request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/forgot-password')
-  // sw.js の PROTECTED_PREFIXES と一致させること(キャッシュ除外パスと未ログイン保護パスの整合性維持)
-  const PROTECTED_PREFIXES = ['/decks', '/history', '/search', '/settings', '/struggling', '/review', '/explore']
-  const isDashboardRoute = PROTECTED_PREFIXES.some((prefix) =>
-    request.nextUrl.pathname.startsWith(prefix)
-  )
+  const isDashboardRoute = request.nextUrl.pathname.startsWith('/decks')
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
   // パスワード再設定リンクからの遷移時はSupabaseのrecoveryセッションにより
   // user が入るため、isAuthRoute のログイン中リダイレクト対象からは除外する。
