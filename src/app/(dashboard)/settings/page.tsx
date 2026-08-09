@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AccountSection } from '@/components/settings/account-section'
 import { DeleteAccountSection } from '@/components/settings/delete-account-section'
 import { BackupSection } from '@/components/settings/backup-section'
 import { ReminderSection } from '@/components/settings/reminder-section'
@@ -20,6 +21,7 @@ export default async function SettingsPage() {
         </p>
       </div>
 
+      <AccountSection />
       <ReminderSection initialSettings={reminderSettings} />
       <BackupSection />
 
