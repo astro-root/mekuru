@@ -34,8 +34,7 @@ function rowToFsrsCard(row: {
  * getDueCountsByDeck(reviews.ts)と同じロジックだが、通知の要否判定だけなので
  * 全件カウントはせず、見つかり次第trueを返して早期終了する。
  */
-export async function hasDueCardsForUser(admin: SupabaseClient, userId: string): Promise<boolean> {
-  const { data: decks, error: decksError } = await admin
+export async function hasDueCardsForUser(admin: SupabaseClient<any, any, any>, userId: string): Promise<boolean> {  const { data: decks, error: decksError } = await admin
     .from('decks')
     .select('id, new_cards_per_day')
     .eq('owner_id', userId)
