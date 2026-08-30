@@ -8,6 +8,12 @@ export type Tag = {
   name: string
 }
 
+// PostgREST(Supabase)への .in() フィルターはGETのクエリ文字列に展開されるため、
+// カードIDを無制限に1回のクエリへ詰め込むとURLが長大になり、
+// プロキシ/CDN側のURL長制限に引っかかってリクエストごと失敗することがある。
+// そのため一定件数ごとに分割してクエリを投げる。
+const CARD_TAGS_CHUNK_SIZE = 200
+
 export async function getAllTags(): Promise<Tag[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -26,6 +32,14 @@ function parseTagNames(raw: string | null | undefined): string[] {
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
   return Array.from(new Set(names))
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size))
+  }
+  return chunks
 }
 
 async function upsertTags(ownerId: string, names: string[]): Promise<Tag[]> {
@@ -108,21 +122,32 @@ export async function syncCardTags(
 // 複数カード分のタグをまとめて取得する(一覧表示用)
 // card_tagsテーブル未作成などで失敗しても、カード一覧全体をクラッシュさせないよう
 // ここでは例外を投げず空オブジェクトにフォールバックする(呼び出し元はgetCards)。
+//
+// カードIDはCARD_TAGS_CHUNK_SIZE件ずつに分割して並列に問い合わせる。
+// 1件のチャンクが失敗しても、他のチャンクの結果は活かしつつ処理を続行する
+// (一覧全体が真っ白になるより、一部のカードのタグが欠けるだけの方が実害が小さいため)。
 export async function getCardTagsByCardIds(cardIds: string[]): Promise<Record<string, Tag[]>> {
   if (cardIds.length === 0) return {}
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('card_tags')
-    .select('card_id, tags(id, name)')
-    .in('card_id', cardIds)
+  const chunks = chunkArray(cardIds, CARD_TAGS_CHUNK_SIZE)
 
-  if (error) {
-    console.error('getCardTagsByCardIds failed:', error.message)
-    return {}
-  }
+  const chunkResults = await Promise.all(
+    chunks.map(async (chunk) => {
+      const { data, error } = await supabase
+        .from('card_tags')
+        .select('card_id, tags(id, name)')
+        .in('card_id', chunk)
+
+      if (error) {
+        console.error('getCardTagsByCardIds failed:', error.message)
+        return []
+      }
+      return (data ?? []) as unknown as { card_id: string; tags: Tag | Tag[] | null }[]
+    })
+  )
 
   const result: Record<string, Tag[]> = {}
-  for (const row of (data ?? []) as unknown as { card_id: string; tags: Tag | Tag[] | null }[]) {
+  for (const row of chunkResults.flat()) {
     const tag = Array.isArray(row.tags) ? row.tags[0] : row.tags
     if (!tag) continue
     if (!result[row.card_id]) result[row.card_id] = []
