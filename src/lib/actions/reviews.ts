@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { scheduleReview, isDue, type ReviewRating } from '@/lib/fsrs/scheduler'
 import { createEmptyCard, State, type Card } from 'ts-fsrs'
+import { chunkArray } from '@/lib/chunk'
 
 export type CardWithState = {
   id: string
@@ -27,6 +28,20 @@ export type DueCard = {
   note: string | null
   due: string
   state: number
+}
+
+type CardReviewRow = {
+  card_id: string
+  due: string
+  stability: number
+  difficulty: number
+  elapsed_days: number
+  scheduled_days: number
+  reps: number
+  lapses: number
+  state: number
+  last_review: string | null
+  learning_steps?: number | null
 }
 
 function rowToFsrsCard(row: {
@@ -55,6 +70,31 @@ function rowToFsrsCard(row: {
   }
 }
 
+// card_reviewsを card_id の .in() で取得する処理は、cardIdsが数百件を超えると
+// PostgRESTへのリクエストURLが長大になり失敗しやすいため、チャンクに分割して
+// 並列に取得しマージする。
+async function getReviewsByCardIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  cardIds: string[]
+): Promise<CardReviewRow[]> {
+  if (cardIds.length === 0) return []
+
+  const chunks = chunkArray(cardIds)
+  const chunkResults = await Promise.all(
+    chunks.map(async (chunk) => {
+      const { data, error } = await supabase
+        .from('card_reviews')
+        .select('*')
+        .eq('user_id', userId)
+        .in('card_id', chunk)
+      if (error) throw new Error(error.message)
+      return (data ?? []) as CardReviewRow[]
+    })
+  )
+  return chunkResults.flat()
+}
+
 export async function getDeckCardsWithState(deckId: string): Promise<CardWithState[]> {
   const supabase = await createClient()
   const {
@@ -70,17 +110,13 @@ export async function getDeckCardsWithState(deckId: string): Promise<CardWithSta
   if (cardsError) throw new Error(cardsError.message)
   if (!cards) return []
 
-  const { data: reviews, error: reviewsError } = await supabase
-    .from('card_reviews')
-    .select('*')
-    .eq('user_id', user.id)
-    .in(
-      'card_id',
-      cards.map((c) => c.id)
-    )
-  if (reviewsError) throw new Error(reviewsError.message)
+  const reviews = await getReviewsByCardIds(
+    supabase,
+    user.id,
+    cards.map((c) => c.id)
+  )
 
-  const reviewByCardId = new Map(reviews?.map((r) => [r.card_id, r]) ?? [])
+  const reviewByCardId = new Map(reviews.map((r) => [r.card_id, r]))
 
   return cards.map((card) => {
     const reviewRow = reviewByCardId.get(card.id)
@@ -122,17 +158,13 @@ export async function getDueCards(deckId: string): Promise<DueCard[]> {
   if (cardsError) throw new Error(cardsError.message)
   if (!cards || cards.length === 0) return []
 
-  const { data: reviews, error: reviewsError } = await supabase
-    .from('card_reviews')
-    .select('*')
-    .eq('user_id', user.id)
-    .in(
-      'card_id',
-      cards.map((c) => c.id)
-    )
-  if (reviewsError) throw new Error(reviewsError.message)
+  const reviews = await getReviewsByCardIds(
+    supabase,
+    user.id,
+    cards.map((c) => c.id)
+  )
 
-  const reviewByCardId = new Map(reviews?.map((r) => [r.card_id, r]) ?? [])
+  const reviewByCardId = new Map(reviews.map((r) => [r.card_id, r]))
   const now = new Date()
 
   const due: DueCard[] = []
