@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { chunkArray } from '@/lib/chunk'
 
 const examGoalSchema = z.object({
   title: z.string().min(1, '試験名は必須です').max(100),
@@ -73,6 +74,31 @@ export async function deleteExamGoal(deckId: string) {
   return { success: true }
 }
 
+// 指定したカードIDのうち、既に1回でもレビューされた件数を数える。
+// cardIdsが数百件を超えるとPostgRESTへの.in()クエリのURLが長大になり失敗しやすいため、
+// チャンクに分割してそれぞれの件数を合算する。
+async function countReviewedCards(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  cardIds: string[]
+): Promise<number> {
+  if (cardIds.length === 0) return 0
+
+  const chunks = chunkArray(cardIds)
+  const counts = await Promise.all(
+    chunks.map(async (chunk) => {
+      const { count, error } = await supabase
+        .from('card_reviews')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .in('card_id', chunk)
+      if (error) throw new Error(error.message)
+      return count ?? 0
+    })
+  )
+  return counts.reduce((sum, c) => sum + c, 0)
+}
+
 /**
  * 試験日までの残り日数と、未学習カードを踏まえた1日あたりの推奨学習ペースを算出する。
  * 「未学習カード」= まだ一度もレビューしていないカード(card_reviewsに行が無いカード)。
@@ -97,16 +123,7 @@ export async function getStudyPace(deckId: string): Promise<StudyPace> {
   if (cardsError) throw new Error(cardsError.message)
 
   const cardIds = (cards ?? []).map((c) => c.id)
-  let reviewedCount = 0
-  if (cardIds.length > 0) {
-    const { count, error: reviewsError } = await supabase
-      .from('card_reviews')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .in('card_id', cardIds)
-    if (reviewsError) throw new Error(reviewsError.message)
-    reviewedCount = count ?? 0
-  }
+  const reviewedCount = await countReviewedCards(supabase, user.id, cardIds)
 
   const totalCards = cardIds.length
   const remainingCards = Math.max(totalCards - reviewedCount, 0)
