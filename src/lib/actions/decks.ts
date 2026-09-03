@@ -54,11 +54,22 @@ function toDeckRow(row: DeckRow): DeckRow {
   }
 }
 
+// 「自分のデッキ一覧」を取得する。
+// 注意: RLSには owner_id = auth.uid() のポリシーに加えて is_public = true の
+// 公開読み取りポリシーもあり、これらは(Postgresの仕様上)OR条件で合成される。
+// そのため owner_id を明示的に絞り込まないと、他人が公開設定にしたデッキまで
+// 「自分のデッキ一覧」に混ざって表示されてしまう。
 export async function getDecks(tagName?: string) {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
   const { data, error } = await supabase
     .from('decks')
     .select('*, deck_tags(tags(id, name))')
+    .eq('owner_id', user.id)
     .order('updated_at', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -75,12 +86,22 @@ export async function getDecks(tagName?: string) {
   return decks
 }
 
+// 自分のデッキを1件取得する(編集・カード管理などオーナー操作向け)。
+// 公開デッキを他人が閲覧する場合は getPublicDeckWithCards を使うこと。
+// こちらも getDecks と同じ理由で owner_id を明示的に絞り込み、他人の公開デッキの
+// IDを直接指定してもオーナー用の画面が開けてしまわないようにしている。
 export async function getDeck(deckId: string) {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('認証されていません')
+
   const { data, error } = await supabase
     .from('decks')
     .select('*, deck_tags(tags(id, name))')
     .eq('id', deckId)
+    .eq('owner_id', user.id)
     .single()
 
   if (error) throw new Error(error.message)
